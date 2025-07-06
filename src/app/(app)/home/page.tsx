@@ -118,13 +118,13 @@ export default function HomePage() {
           </Card>
 
           <div className="mt-4 space-y-4">
-            <Link href="/map" passHref>
+            <Link href="/map?generate=true" passHref>
               <Button size="lg" className="w-full">
                 <Compass className="mr-2 h-5 w-5" />
                 Generate New Walk
               </Button>
             </Link>
-            <Link href="/map" passHref>
+            <Link href="/map?quick_walk=true" passHref>
               <Button size="lg" variant="secondary" className="w-full">
                 <Footprints className="mr-2 h-5 w-5" />
                 Start a Quick Walk
