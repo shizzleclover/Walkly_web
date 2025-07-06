@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Clock, Compass, Camera, Sparkles } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 
 const pastWalks = [
   { 
@@ -142,10 +143,12 @@ export default function HistoryPage() {
                   <CardDescription>Save unlimited walks and capture every special moment by upgrading to Premium.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Button>
-                    <Camera className="mr-2 h-4 w-4" />
-                    Upgrade to Premium
-                  </Button>
+                  <Link href="/profile/subscription" passHref>
+                    <Button>
+                      <Camera className="mr-2 h-4 w-4" />
+                      Upgrade to Premium
+                    </Button>
+                  </Link>
                 </CardContent>
               </Card>
             )}

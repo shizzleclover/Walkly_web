@@ -8,10 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { BarChart as BarChartIcon, Settings, User } from "lucide-react";
+import { BarChart as BarChartIcon, Settings, User, Star } from "lucide-react";
 import Link from "next/link";
 import { BarChart, Bar, CartesianGrid, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import { ChartContainer, ChartTooltipContent, ChartConfig } from "@/components/ui/chart";
+import { Badge } from "@/components/ui/badge";
+
+// Mock user subscription status
+type SubscriptionStatus = 'trial' | 'pro' | 'free';
 
 const chartData = [
   { month: "January", walks: 18 },
@@ -55,6 +59,8 @@ function WalkChart() {
 }
 
 export default function ProfilePage() {
+  const [subscriptionStatus, setSubscriptionStatus] = React.useState<SubscriptionStatus>('trial');
+
   return (
     <AppLayout>
       <div className="flex flex-col h-full">
@@ -73,6 +79,23 @@ export default function ProfilePage() {
         </header>
 
         <div className="p-4 sm:p-6 space-y-8">
+          {subscriptionStatus === 'trial' && (
+            <Card className="bg-primary/5 border-primary/20">
+              <CardContent className="p-4">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <Star className="w-5 h-5 text-primary" />
+                    <h3 className="font-semibold text-foreground">Free Trial</h3>
+                  </div>
+                  <span className="text-sm font-medium text-primary">7 days left</span>
+                </div>
+                <p className="text-sm text-muted-foreground mt-1">
+                    Enjoying full access during your trial period.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+          
           <Card>
             <CardHeader>
               <CardTitle>Personal Information</CardTitle>
@@ -90,8 +113,11 @@ export default function ProfilePage() {
               </div>
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Name</Label>
-                  <Input id="name" defaultValue="Alex Doe" />
+                    <Label htmlFor="name">Name</Label>
+                    <div className="flex items-center gap-2">
+                        <Input id="name" defaultValue="Alex Doe" />
+                        {subscriptionStatus === 'pro' && <Badge className="bg-primary hover:bg-primary">PRO</Badge>}
+                    </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
