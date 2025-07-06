@@ -2,6 +2,7 @@
 "use client";
 
 import * as React from "react";
+import Image from "next/image";
 import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -19,6 +20,7 @@ import { Slider } from "@/components/ui/slider";
 import { useSearchParams } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { Textarea } from "@/components/ui/textarea";
 
 type WalkState = 'idle' | 'generating' | 'preview' | 'active' | 'paused';
 
@@ -43,6 +45,7 @@ function MapPageContent() {
   const [walkState, setWalkState] = React.useState<WalkState>('idle');
   const [duration, setDuration] = React.useState(30);
   const [isGenerateSheetOpen, setGenerateSheetOpen] = React.useState(false);
+  const [isMomentSheetOpen, setMomentSheetOpen] = React.useState(false);
 
   const handleStartWalk = React.useCallback(() => {
     setWalkState('active');
@@ -73,6 +76,14 @@ function MapPageContent() {
     toast({
       title: "Walk Saved!",
       description: "Your adventure has been added to your history.",
+    });
+  }
+
+  const handleSaveMoment = () => {
+    setMomentSheetOpen(false);
+    toast({
+        title: "Moment Saved!",
+        description: "Your memory has been captured on the walk.",
     });
   }
 
@@ -133,7 +144,7 @@ function MapPageContent() {
                  <Button size="lg" variant="secondary" onClick={() => setWalkState(walkState === 'active' ? 'paused' : 'active')}>
                   {walkState === 'active' ? <Pause /> : <Play />}
                 </Button>
-                <Button size="lg" variant="secondary">
+                <Button size="lg" variant="secondary" onClick={() => setMomentSheetOpen(true)}>
                   <Camera />
                 </Button>
                  <Button size="lg" variant="destructive" onClick={handleEndWalk}>
@@ -213,6 +224,40 @@ function MapPageContent() {
             </div>
           </SheetContent>
         </Sheet>
+
+        <Sheet open={isMomentSheetOpen} onOpenChange={setMomentSheetOpen}>
+          <SheetContent>
+            <SheetHeader>
+              <SheetTitle>Capture a Moment</SheetTitle>
+              <SheetDescription>
+                Add a photo and a note to remember this spot.
+              </SheetDescription>
+            </SheetHeader>
+            <div className="py-8 space-y-6">
+              <div className="space-y-2">
+                <Label>Photo</Label>
+                <Card>
+                  <CardContent className="p-2 aspect-video flex items-center justify-center bg-secondary">
+                      <Image src="https://placehold.co/600x400.png" alt="Photo placeholder" width={300} height={150} className="rounded-md object-cover" data-ai-hint="nature landscape" />
+                  </CardContent>
+                </Card>
+                <Button variant="outline" className="w-full">
+                    <Camera className="mr-2 h-4 w-4" />
+                    Upload Photo
+                </Button>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="note">Note (Optional)</Label>
+                <Textarea id="note" placeholder="What's special about this place?" rows={4} />
+              </div>
+              <Button size="lg" className="w-full" onClick={handleSaveMoment}>
+                <Save className="mr-2 h-5 w-5" />
+                Save Moment
+              </Button>
+            </div>
+          </SheetContent>
+        </Sheet>
+
       </div>
     </AppLayout>
   );

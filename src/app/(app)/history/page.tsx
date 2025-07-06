@@ -102,12 +102,12 @@ export default function HistoryPage() {
                   {walk.moments.length > 0 && (
                     <div className="px-4 pb-4">
                       <div className="border-t pt-4">
-                        <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                        <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
                           <Camera className="w-4 h-4 text-muted-foreground" />
                           Moments Captured
                         </h4>
-                        <div className="flex gap-2">
-                          {walk.moments.slice(0, 4).map(moment => (
+                        <div className="flex gap-3">
+                          {walk.moments.slice(0, 3).map(moment => (
                             <Image
                               key={moment.id}
                               src={`https://placehold.co/100x100.png`} 
@@ -115,12 +115,12 @@ export default function HistoryPage() {
                               data-ai-hint={moment.photoHint}
                               width={100}
                               height={100}
-                              className="rounded-md object-cover w-16 h-16"
+                              className="rounded-lg object-cover w-20 h-20 border-2 border-background shadow-md"
                             />
                           ))}
-                           {walk.moments.length > 4 && (
-                            <div className="w-16 h-16 bg-muted rounded-md flex items-center justify-center text-xs text-muted-foreground font-medium">
-                              +{walk.moments.length - 4}
+                           {walk.moments.length > 3 && (
+                            <div className="w-20 h-20 bg-muted rounded-lg flex items-center justify-center text-xs text-muted-foreground font-medium border-2 border-background shadow-md">
+                              +{walk.moments.length - 3}
                             </div>
                           )}
                         </div>
@@ -138,11 +138,12 @@ export default function HistoryPage() {
                   <div className="mx-auto bg-primary/10 rounded-full p-3 w-fit mb-2">
                     <Sparkles className="w-6 h-6 text-primary" />
                   </div>
-                  <CardTitle>Unlock Your Full History</CardTitle>
-                  <CardDescription>See all your past walks and captured moments by upgrading.</CardDescription>
+                  <CardTitle>Unlock Full History & Moments</CardTitle>
+                  <CardDescription>Save unlimited walks and capture every special moment by upgrading to Premium.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <Button>
+                    <Camera className="mr-2 h-4 w-4" />
                     Upgrade to Premium
                   </Button>
                 </CardContent>
