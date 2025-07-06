@@ -88,7 +88,7 @@ export default function HomePage() {
           <CardContent>
             <Link href="/map?generate=true" passHref>
               <Button size="lg" className="w-full">
-                <Compass className="mr-2 h-5 w-5" />
+                <Compass className="mr-2 h-5 w-5 animate-subtle-pulse" />
                 Generate a Smart Route
               </Button>
             </Link>

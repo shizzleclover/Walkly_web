@@ -132,7 +132,7 @@ export default function OnboardingPage() {
             
                   <div className="mt-auto pt-6 w-full space-y-2">
                     <Button className="w-full" size="lg" onClick={() => setDialogOpen(true)}>
-                      <Star className="mr-2 h-4 w-4" />
+                      <Star className="mr-2 h-4 w-4 animate-subtle-pulse" />
                       Start 7-Day Free Trial
                     </Button>
                     <Button variant="link" className="text-muted-foreground" size="lg" onClick={() => router.push('/login')}>

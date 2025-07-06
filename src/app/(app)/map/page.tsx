@@ -21,6 +21,7 @@ import { useSearchParams } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
+import { WalkingAnimation } from "@/components/walking-animation";
 
 type WalkState = 'idle' | 'generating' | 'preview' | 'active' | 'paused';
 
@@ -90,35 +91,36 @@ function MapPageContent() {
   const renderControls = () => {
     switch (walkState) {
       case 'generating':
+        return (
+          <Card className="shadow-2xl">
+            <CardHeader>
+              <CardTitle>Generating Route...</CardTitle>
+              <CardDescription>Our AI is finding the perfect path for you.</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col items-center justify-center py-8">
+              <WalkingAnimation />
+              <p className="mt-4 text-sm text-muted-foreground animate-pulse">Finding the best route...</p>
+            </CardContent>
+          </Card>
+        );
       case 'preview':
         return (
           <Card className="shadow-2xl">
             <CardHeader>
-              <CardTitle>
-                {walkState === 'generating' ? 'Generating Route...' : 'Your Route is Ready!'}
-              </CardTitle>
-              <CardDescription>
-                {walkState === 'generating' ? 'Our AI is finding the perfect path for you.' : `A scenic ${duration}-minute walk.`}
-              </CardDescription>
+              <CardTitle>Your Route is Ready!</CardTitle>
+              <CardDescription>{`A scenic ${duration}-minute walk.`}</CardDescription>
             </CardHeader>
             <CardContent>
-              {walkState === 'generating' ? (
-                 <div className="space-y-4">
-                    <Skeleton className="h-8 w-full" />
-                    <Skeleton className="h-10 w-full" />
-                 </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-4">
-                  <Button variant="outline" onClick={() => setWalkState('idle')}>
-                    <RotateCcw className="mr-2 h-4 w-4" />
-                    Cancel
-                  </Button>
-                  <Button onClick={handleStartWalk}>
-                    <Play className="mr-2 h-4 w-4" />
-                    Start Walk
-                  </Button>
-                </div>
-              )}
+              <div className="grid grid-cols-2 gap-4">
+                <Button variant="outline" onClick={() => setWalkState('idle')}>
+                  <RotateCcw className="mr-2 h-4 w-4" />
+                  Cancel
+                </Button>
+                <Button onClick={handleStartWalk}>
+                  <Play className="mr-2 h-4 w-4" />
+                  Start Walk
+                </Button>
+              </div>
             </CardContent>
           </Card>
         );
