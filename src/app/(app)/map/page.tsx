@@ -169,7 +169,7 @@ function MapPageContent() {
   
   return (
     <AppLayout>
-      <div className="relative h-full w-full">
+      <div className="relative flex h-full w-full">
         <div className="absolute inset-0">
           {apiKey ? (
             <APIProvider apiKey={apiKey}>
@@ -271,5 +271,3 @@ export default function MapPage() {
     </React.Suspense>
   )
 }
-
-    
