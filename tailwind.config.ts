@@ -10,9 +10,19 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        body: ['Inter', 'sans-serif'],
-        headline: ['Inter', 'sans-serif'],
-        code: ['monospace'],
+        body: ['Montserrat', 'sans-serif'],
+        headline: ['Merriweather', 'serif'],
+        code: ['Source Code Pro', 'monospace'],
+      },
+      boxShadow: {
+        '2xs': '0 1px 3px 0px hsl(0 0% 0% / 0.05)',
+        'xs': '0 1px 3px 0px hsl(0 0% 0% / 0.05)',
+        'sm': '0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 1px 2px -1px hsl(0 0% 0% / 0.10)',
+        'DEFAULT': '0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 1px 2px -1px hsl(0 0% 0% / 0.10)',
+        'md': '0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 2px 4px -1px hsl(0 0% 0% / 0.10)',
+        'lg': '0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 4px 6px -1px hsl(0 0% 0% / 0.10)',
+        'xl': '0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 8px 10px -1px hsl(0 0% 0% / 0.10)',
+        '2xl': '0 1px 3px 0px hsl(0 0% 0% / 0.25)',
       },
       colors: {
         background: 'hsl(var(--background))',
