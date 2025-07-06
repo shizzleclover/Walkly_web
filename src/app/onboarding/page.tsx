@@ -4,7 +4,7 @@
 import * as React from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { MapPin, BarChart, Star } from "lucide-react";
+import { MapPin, BarChart, Star, Check } from "lucide-react";
 
 import {
   Carousel,
@@ -16,7 +16,6 @@ import {
 } from "@/components/ui/carousel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { useToast } from "@/hooks/use-toast";
 import { SubscriptionDialog } from "@/components/subscription-dialog";
 
@@ -105,27 +104,40 @@ export default function OnboardingPage() {
             </CarouselItem>
             <CarouselItem>
               <Card className="bg-card border-none shadow-none">
-                <CardContent className="flex flex-col items-center justify-center p-6 text-center aspect-square">
+                <CardContent className="flex flex-col items-center justify-center p-6 text-center aspect-[9/12] sm:aspect-square">
                   <div className="p-4 rounded-full bg-primary/10 text-primary">
-                    <Star className="w-16 h-16" />
+                    <Star className="w-12 h-12 sm:w-16 sm:h-16" />
                   </div>
-                  <h2 className="mt-6 text-3xl font-bold font-headline text-foreground">
-                    Unlock Your Potential
+                  <h2 className="mt-6 text-2xl sm:text-3xl font-bold font-headline text-foreground">
+                    Ready to Go Premium?
                   </h2>
-                  <p className="mt-2 text-muted-foreground">
-                    Start a free trial for full access, or continue with our basic plan.
+                  <p className="mt-2 text-muted-foreground max-w-sm">
+                    Unlock all features for 7 days. No commitment, cancel anytime.
                   </p>
-                  <div className="mt-8 space-y-4 w-full">
+                  
+                  <ul className="mt-6 sm:mt-8 space-y-2 text-left text-sm text-foreground">
+                    <li className="flex items-center gap-2">
+                        <Check className="w-4 h-4 text-green-500" />
+                        <span>Unlimited AI-Generated Walks</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                        <Check className="w-4 h-4 text-green-500" />
+                        <span>Capture & Save Unlimited Moments</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                        <Check className="w-4 h-4 text-green-500" />
+                        <span>Full, Unrestricted Walk History</span>
+                    </li>
+                  </ul>
+            
+                  <div className="mt-auto pt-6 w-full space-y-2">
                     <Button className="w-full" size="lg" onClick={() => setDialogOpen(true)}>
                       <Star className="mr-2 h-4 w-4" />
                       Start 7-Day Free Trial
                     </Button>
-                    <Button variant="secondary" className="w-full" size="lg" onClick={() => router.push('/login')}>
-                      Continue with Free Plan
+                    <Button variant="link" className="text-muted-foreground" size="lg" onClick={() => router.push('/login')}>
+                      Maybe Later
                     </Button>
-                  </div>
-                   <div className="mt-8">
-                     <ThemeToggle />
                   </div>
                 </CardContent>
               </Card>
