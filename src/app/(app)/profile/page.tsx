@@ -51,7 +51,7 @@ function WalkChart() {
             cursor={false}
             content={<ChartTooltipContent indicator="dot" />}
           />
-          <Bar dataKey="walks" fill="var(--color-walks)" radius={8} />
+          <Bar dataKey="walks" fill="var(--color-walks)" radius={8} animationDuration={900} />
         </BarChart>
       </ResponsiveContainer>
     </ChartContainer>

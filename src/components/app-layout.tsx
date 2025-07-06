@@ -20,7 +20,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     <div className="flex flex-col min-h-screen">
       <main className="flex-1 pb-20">{children}</main>
       <footer className="fixed bottom-0 left-0 right-0 border-t bg-background/80 backdrop-blur-sm z-10">
-        <nav className="flex items-center justify-around h-16 max-w-md mx-auto">
+        <nav className="flex items-center justify-around h-14 max-w-md mx-auto">
           {navItems.map((item) => {
             const isActive = item.href === '/home' 
               ? pathname === item.href 

@@ -6,7 +6,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useRouter } from "next/navigation";
-import { LogOut, Palette, ChevronLeft } from "lucide-react";
+import { LogOut, Palette, ChevronLeft, CreditCard } from "lucide-react";
 import Link from "next/link";
 
 export default function SettingsPage() {
@@ -48,6 +48,25 @@ export default function SettingsPage() {
                 <p className="font-medium">Theme</p>
                 <ThemeToggle />
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CreditCard className="w-5 h-5 text-primary" />
+                <span>Subscription</span>
+              </CardTitle>
+              <CardDescription>
+                Manage your subscription plan and billing details.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link href="/profile/subscription" passHref>
+                <Button className="w-full sm:w-auto">
+                  Manage Subscription
+                </Button>
+              </Link>
             </CardContent>
           </Card>
 
