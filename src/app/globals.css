@@ -6,6 +6,86 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Mobile Native App Styling */
+@layer base {
+  html {
+    /* Prevent zoom on input focus */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    /* Smooth scrolling */
+    scroll-behavior: smooth;
+  }
+
+  body {
+    /* Prevent overscroll bounce */
+    overscroll-behavior: none;
+    /* Disable text selection for app-like feel */
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    user-select: none;
+    /* Disable tap highlight */
+    -webkit-tap-highlight-color: transparent;
+    /* Better font rendering */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* Native scrolling momentum */
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Allow text selection only for inputs and text areas */
+  input, textarea, [contenteditable] {
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    user-select: text;
+  }
+
+  /* Safe area support for mobile devices */
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  .safe-area-left {
+    padding-left: env(safe-area-inset-left);
+  }
+  
+  .safe-area-right {
+    padding-right: env(safe-area-inset-right);
+  }
+
+  /* Better touch targets */
+  button, [role="button"], a, label {
+    /* Minimum 44px touch target */
+    min-height: 44px;
+    min-width: 44px;
+    /* Better touch feedback */
+    touch-action: manipulation;
+    /* Re-enable selection for buttons */
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    user-select: none;
+  }
+
+  /* Custom scrollbar for webkit (mobile safari) */
+  ::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Disable pull-to-refresh */
+  html, body {
+    overscroll-behavior-y: none;
+  }
+
+  /* Native app animations */
+  * {
+    /* Faster transitions for native feel */
+    transition-timing-function: cubic-bezier(0.4, 0.0, 0.2, 1);
+  }
+}
+
 @layer base {
   :root {
     --background: 80.7 13.6% 97.1%;
@@ -84,5 +164,31 @@ body {
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* Mobile-specific utility classes */
+@layer utilities {
+  .touch-manipulation {
+    touch-action: manipulation;
+  }
+  
+  .no-select {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    user-select: none;
+  }
+  
+  .native-scroll {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: none;
+  }
+  
+  .app-button {
+    @apply touch-manipulation no-select active:scale-95 transition-transform duration-150;
+  }
+  
+  .app-card {
+    @apply touch-manipulation active:scale-[0.98] transition-transform duration-150;
   }
 }

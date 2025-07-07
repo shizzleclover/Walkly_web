@@ -1,4 +1,3 @@
-
 import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -62,40 +61,47 @@ export default function HistoryPage() {
   return (
     <AppLayout>
       <div className="flex flex-col h-full">
-        <header className="p-4 sm:p-6 sticky top-0 bg-background/80 backdrop-blur-sm z-10 border-b">
+        <header className="p-4 sm:p-6 sticky top-0 bg-background/95 backdrop-blur-md z-10 border-b safe-area-top">
           <h1 className="text-3xl font-bold font-headline text-foreground">
             Walk History
           </h1>
-          <p className="text-muted-foreground">A log of your recent adventures.</p>
+          <p className="text-muted-foreground mt-1">A log of your recent adventures.</p>
         </header>
 
-        <ScrollArea className="flex-1">
-          <div className="p-4 sm:p-6 space-y-6">
+        <ScrollArea className="flex-1 native-scroll">
+          <div className="p-4 sm:p-6 space-y-4">
             {displayedWalks.map((walk) => (
-              <Card key={walk.id} className="shadow-md hover:shadow-lg transition-shadow cursor-pointer overflow-hidden">
+              <Card key={walk.id} interactive className="shadow-md hover:shadow-lg transition-all duration-200 overflow-hidden">
                 <CardContent className="p-0">
-                  <Image 
-                    src={`https://placehold.co/600x300.png`} 
-                    alt={`Map of ${walk.locationName}`} 
-                    data-ai-hint={walk.mapHint}
-                    width={600}
-                    height={300}
-                    className="object-cover w-full"
-                  />
+                  <div className="relative">
+                    <Image 
+                      src={`https://placehold.co/600x200.png`} 
+                      alt={`Map of ${walk.locationName}`} 
+                      data-ai-hint={walk.mapHint}
+                      width={600}
+                      height={200}
+                      className="object-cover w-full h-[160px]"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+                  </div>
                   <div className="p-4">
-                    <CardTitle className="text-xl font-bold">{walk.locationName}</CardTitle>
-                    <CardDescription>
+                    <CardTitle className="text-xl font-bold mb-1">{walk.locationName}</CardTitle>
+                    <CardDescription className="mb-3">
                       {new Date(walk.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
                     </CardDescription>
 
-                    <div className="flex items-center justify-start gap-6 mt-4 text-sm">
+                    <div className="flex items-center justify-start gap-6 text-sm">
                       <div className="flex items-center gap-2">
-                        <Compass className="w-4 h-4 text-primary" />
-                        <span className="font-medium">{walk.distance}</span>
+                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                          <Compass className="w-4 h-4 text-primary" />
+                        </div>
+                        <span className="font-semibold text-foreground">{walk.distance}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-primary" />
-                        <span className="font-medium">{walk.duration}</span>
+                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                          <Clock className="w-4 h-4 text-primary" />
+                        </div>
+                        <span className="font-semibold text-foreground">{walk.duration}</span>
                       </div>
                     </div>
                   </div>
@@ -116,11 +122,11 @@ export default function HistoryPage() {
                               data-ai-hint={moment.photoHint}
                               width={100}
                               height={100}
-                              className="rounded-lg object-cover w-20 h-20 border-2 border-background shadow-md"
+                              className="rounded-lg object-cover w-16 h-16 border-2 border-background shadow-md"
                             />
                           ))}
                            {walk.moments.length > 3 && (
-                            <div className="w-20 h-20 bg-muted rounded-lg flex items-center justify-center text-xs text-muted-foreground font-medium border-2 border-background shadow-md">
+                            <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center text-xs text-muted-foreground font-medium border-2 border-background shadow-md">
                               +{walk.moments.length - 3}
                             </div>
                           )}
@@ -134,17 +140,17 @@ export default function HistoryPage() {
             ))}
 
             {pastWalks.length > freeTierLimit && (
-              <Card className="bg-primary/5 border-primary/20 text-center shadow-md">
-                <CardHeader>
+              <Card className="bg-gradient-to-br from-primary/5 to-background border-primary/20 text-center shadow-md">
+                <CardHeader className="pb-4">
                   <div className="mx-auto bg-primary/10 rounded-full p-3 w-fit mb-2">
                     <Sparkles className="w-6 h-6 text-primary" />
                   </div>
-                  <CardTitle>Unlock Full History & Moments</CardTitle>
+                  <CardTitle className="text-xl">Unlock Full History & Moments</CardTitle>
                   <CardDescription>Save unlimited walks and capture every special moment by upgrading to Premium.</CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="pt-0">
                   <Link href="/profile/subscription" passHref>
-                    <Button>
+                    <Button className="text-base font-semibold">
                       <Camera className="mr-2 h-4 w-4" />
                       Upgrade to Premium
                     </Button>

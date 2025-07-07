@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -17,10 +16,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <main className="flex-1 pb-20">{children}</main>
-      <footer className="fixed bottom-0 left-0 right-0 border-t bg-background/80 backdrop-blur-sm z-10">
-        <nav className="flex items-center justify-around h-14 max-w-md mx-auto">
+    <div className="flex flex-col min-h-screen bg-background safe-area-top">
+      <main className="flex-1 pb-20 native-scroll">{children}</main>
+      <footer className="fixed bottom-0 left-0 right-0 border-t bg-background/95 backdrop-blur-md z-50 safe-area-bottom">
+        <nav className="flex items-center justify-around h-16 max-w-md mx-auto px-4">
           {navItems.map((item) => {
             const isActive = item.href === '/home' 
               ? pathname === item.href 
@@ -30,12 +29,19 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex flex-col items-center justify-center gap-1 text-muted-foreground transition-colors hover:text-primary",
-                  isActive && "text-primary"
+                  "flex flex-col items-center justify-center gap-1 p-2 rounded-xl min-w-[60px] min-h-[60px] transition-all duration-200 app-button",
+                  "text-muted-foreground hover:text-primary",
+                  isActive && "text-primary bg-primary/10"
                 )}
               >
-                <item.icon className="w-6 h-6" />
-                <span className="text-xs font-medium">{item.label}</span>
+                <item.icon className={cn(
+                  "transition-all duration-200",
+                  isActive ? "w-7 h-7" : "w-6 h-6"
+                )} />
+                <span className={cn(
+                  "text-xs font-medium transition-all duration-200",
+                  isActive ? "font-semibold" : "font-normal"
+                )}>{item.label}</span>
               </Link>
             );
           })}

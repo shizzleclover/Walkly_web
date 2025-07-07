@@ -1,4 +1,3 @@
-
 "use client";
 
 import { AppLayout } from "@/components/app-layout";
@@ -72,23 +71,23 @@ export default function HomePage() {
 
   return (
     <AppLayout>
-      <div className="p-4 sm:p-6 space-y-8">
-        <header>
+      <div className="p-4 sm:p-6 space-y-6 safe-area-top">
+        <header className="pt-2">
           <h1 className="text-3xl font-bold font-headline text-foreground">
             Good morning, Alex!
           </h1>
-          <p className="text-muted-foreground">Ready for a new adventure?</p>
+          <p className="text-muted-foreground mt-1">Ready for a new adventure?</p>
         </header>
 
-        <Card className="shadow-lg bg-primary/10 border-primary/20">
-          <CardHeader>
-            <CardTitle>Time for a walk?</CardTitle>
+        <Card interactive className="shadow-lg bg-gradient-to-br from-primary/10 to-background border-primary/20">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-xl">Time for a walk?</CardTitle>
             <CardDescription>The weather is perfect today. Let's find a new path for you.</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-0">
             <Link href="/map?generate=true" passHref>
-              <Button size="lg" className="w-full">
-                <Compass className="mr-2 h-5 w-5 animate-subtle-pulse" />
+              <Button size="lg" className="w-full text-base font-semibold">
+                <Compass className="mr-2 h-5 w-5" />
                 Generate a Smart Route
               </Button>
             </Link>
@@ -96,42 +95,42 @@ export default function HomePage() {
         </Card>
 
         <div className="grid grid-cols-2 gap-4">
-          <Card className="shadow-md">
+          <Card interactive className="shadow-md">
             <CardHeader className="p-4 pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Walks This Week</CardTitle>
             </CardHeader>
             <CardContent className="p-4 pt-0">
-              <p className="text-3xl font-bold">{walksThisWeek}</p>
+              <p className="text-2xl font-bold text-primary">{walksThisWeek}</p>
             </CardContent>
           </Card>
-          <Card className="shadow-md">
+          <Card interactive className="shadow-md">
             <CardHeader className="p-4 pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Last Walk</CardTitle>
             </CardHeader>
             <CardContent className="p-4 pt-0">
-              <p className="text-3xl font-bold">{lastWalk.distance}</p>
+              <p className="text-2xl font-bold text-primary">{lastWalk.distance}</p>
             </CardContent>
           </Card>
         </div>
 
         <Card className="shadow-md">
-          <CardHeader>
+          <CardHeader className="pb-4">
             <CardTitle className="flex items-center gap-2 text-lg">
               <Activity className="w-5 h-5 text-primary" />
               <span>Your Activity</span>
             </CardTitle>
             <CardDescription>A look at your walks over the last 12 weeks.</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-0">
             <ActivityHeatmap />
           </CardContent>
         </Card>
 
         <Link href="/map?quick_walk=true" passHref>
-            <Button size="lg" variant="secondary" className="w-full">
-                <Footprints className="mr-2 h-5 w-5" />
-                Start a Quick Walk
-            </Button>
+          <Button size="lg" variant="secondary" className="w-full text-base font-semibold">
+            <Footprints className="mr-2 h-5 w-5" />
+            Start a Quick Walk
+          </Button>
         </Link>
       </div>
     </AppLayout>

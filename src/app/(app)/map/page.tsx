@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -26,13 +25,13 @@ import { WalkingAnimation } from "@/components/walking-animation";
 type WalkState = 'idle' | 'generating' | 'preview' | 'active' | 'paused';
 
 const MapPlaceholder = () => (
-  <div className="rounded-lg bg-muted flex flex-col items-center justify-center text-center p-4 h-full">
-    <AlertCircle className="w-12 h-12 text-muted-foreground mb-4" />
-    <h3 className="font-bold text-lg text-foreground">Map Unavailable</h3>
-    <p className="text-muted-foreground text-sm">
+  <div className="rounded-lg bg-muted flex flex-col items-center justify-center text-center p-6 h-full">
+    <AlertCircle className="w-16 h-16 text-muted-foreground mb-6" />
+    <h3 className="font-bold text-xl text-foreground mb-2">Map Unavailable</h3>
+    <p className="text-muted-foreground text-sm max-w-xs">
       Please provide a Google Maps API key in your environment variables to display the map.
     </p>
-    <code className="text-xs bg-secondary text-secondary-foreground rounded p-2 mt-4">
+    <code className="text-xs bg-secondary text-secondary-foreground rounded p-3 mt-6 block">
       NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=...
     </code>
   </div>
@@ -92,31 +91,31 @@ function MapPageContent() {
     switch (walkState) {
       case 'generating':
         return (
-          <Card className="shadow-2xl">
-            <CardHeader>
-              <CardTitle>Generating Route...</CardTitle>
+          <Card className="shadow-2xl bg-background/95 backdrop-blur-lg border-0">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-xl">Generating Route...</CardTitle>
               <CardDescription>Our AI is finding the perfect path for you.</CardDescription>
             </CardHeader>
-            <CardContent className="flex flex-col items-center justify-center py-8">
+            <CardContent className="flex flex-col items-center justify-center py-8 pt-0">
               <WalkingAnimation />
-              <p className="mt-4 text-sm text-muted-foreground animate-pulse">Finding the best route...</p>
+              <p className="mt-6 text-sm text-muted-foreground animate-pulse">Finding the best route...</p>
             </CardContent>
           </Card>
         );
       case 'preview':
         return (
-          <Card className="shadow-2xl">
-            <CardHeader>
-              <CardTitle>Your Route is Ready!</CardTitle>
+          <Card className="shadow-2xl bg-background/95 backdrop-blur-lg border-0">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-xl">Your Route is Ready!</CardTitle>
               <CardDescription>{`A scenic ${duration}-minute walk.`}</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-4">
-                <Button variant="outline" onClick={() => setWalkState('idle')}>
+            <CardContent className="pt-0">
+              <div className="grid grid-cols-2 gap-3">
+                <Button variant="outline" onClick={() => setWalkState('idle')} className="app-button text-base font-semibold">
                   <RotateCcw className="mr-2 h-4 w-4" />
                   Cancel
                 </Button>
-                <Button onClick={handleStartWalk}>
+                <Button onClick={handleStartWalk} className="app-button text-base font-semibold">
                   <Play className="mr-2 h-4 w-4" />
                   Start Walk
                 </Button>
@@ -127,30 +126,30 @@ function MapPageContent() {
       case 'active':
       case 'paused':
         return (
-          <Card className="shadow-2xl">
-            <CardHeader>
-              <CardTitle>Current Walk</CardTitle>
+          <Card className="shadow-2xl bg-background/95 backdrop-blur-lg border-0">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-xl">Current Walk</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-0">
               <div className="flex items-center justify-around mb-6">
                 <div className="text-center">
-                  <p className="text-2xl font-bold">1.2 km</p>
+                  <p className="text-2xl font-bold text-primary">1.2 km</p>
                   <p className="text-sm text-muted-foreground">Distance</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-2xl font-bold">18:32</p>
+                  <p className="text-2xl font-bold text-primary">18:32</p>
                   <p className="text-sm text-muted-foreground">Time</p>
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-2">
-                 <Button size="lg" variant="secondary" onClick={() => setWalkState(walkState === 'active' ? 'paused' : 'active')}>
-                  {walkState === 'active' ? <Pause /> : <Play />}
+              <div className="grid grid-cols-3 gap-3">
+                 <Button size="lg" variant="secondary" onClick={() => setWalkState(walkState === 'active' ? 'paused' : 'active')} className="app-button">
+                  {walkState === 'active' ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
                 </Button>
-                <Button size="lg" variant="secondary" onClick={() => setMomentSheetOpen(true)}>
-                  <Camera />
+                <Button size="lg" variant="secondary" onClick={() => setMomentSheetOpen(true)} className="app-button">
+                  <Camera className="h-5 w-5" />
                 </Button>
-                 <Button size="lg" variant="destructive" onClick={handleEndWalk}>
-                  <Square />
+                 <Button size="lg" variant="destructive" onClick={handleEndWalk} className="app-button">
+                  <Square className="h-5 w-5" />
                 </Button>
               </div>
             </CardContent>
@@ -160,7 +159,7 @@ function MapPageContent() {
       default:
         return (
           <div className="grid grid-cols-1 gap-4">
-             <Button size="lg" onClick={() => setGenerateSheetOpen(true)}>
+             <Button size="lg" onClick={() => setGenerateSheetOpen(true)} className="app-button text-base font-semibold shadow-lg">
               <Compass className="mr-2 h-5 w-5" />
               Generate Smart Route
             </Button>
@@ -171,7 +170,7 @@ function MapPageContent() {
   
   return (
     <AppLayout>
-      <div className="relative flex h-full w-full">
+      <div className="relative flex h-full w-full overflow-hidden">
         <div className="absolute inset-0">
           {apiKey ? (
             <APIProvider apiKey={apiKey}>
@@ -189,21 +188,21 @@ function MapPageContent() {
           )}
         </div>
 
-        <div className="absolute bottom-0 left-0 right-0 p-4 space-y-4">
+        <div className="absolute bottom-0 left-0 right-0 p-4 safe-area-bottom">
           {renderControls()}
         </div>
 
         <Sheet open={isGenerateSheetOpen} onOpenChange={setGenerateSheetOpen}>
-          <SheetContent>
+          <SheetContent className="native-scroll">
             <SheetHeader>
-              <SheetTitle>Generate a new walk</SheetTitle>
+              <SheetTitle className="text-xl">Generate a new walk</SheetTitle>
               <SheetDescription>
                 Let our AI create a custom walking route just for you. How long would you like to walk for?
               </SheetDescription>
             </SheetHeader>
             <div className="py-8 space-y-8">
-              <div className="space-y-4">
-                <Label htmlFor="duration" className="text-lg font-bold text-center block">
+              <div className="space-y-6">
+                <Label htmlFor="duration" className="text-2xl font-bold text-center block text-primary">
                   {duration} minutes
                 </Label>
                 <Slider
@@ -213,13 +212,14 @@ function MapPageContent() {
                   step={5}
                   value={[duration]}
                   onValueChange={(value) => setDuration(value[0])}
+                  className="touch-slider"
                 />
               </div>
-              <Button size="lg" className="w-full" onClick={handleGenerateRoute}>
+              <Button size="lg" className="w-full app-button text-base font-semibold" onClick={handleGenerateRoute}>
                 <Compass className="mr-2 h-5 w-5" />
                 Generate Smart Route
               </Button>
-              <Button size="lg" variant="secondary" className="w-full" onClick={handleStartWalk}>
+              <Button size="lg" variant="secondary" className="w-full app-button text-base font-semibold" onClick={handleStartWalk}>
                 <Footprints className="mr-2 h-5 w-5" />
                 Just Start Walking
               </Button>
@@ -228,31 +228,31 @@ function MapPageContent() {
         </Sheet>
 
         <Sheet open={isMomentSheetOpen} onOpenChange={setMomentSheetOpen}>
-          <SheetContent>
+          <SheetContent className="native-scroll">
             <SheetHeader>
-              <SheetTitle>Capture a Moment</SheetTitle>
+              <SheetTitle className="text-xl">Capture a Moment</SheetTitle>
               <SheetDescription>
                 Add a photo and a note to remember this spot.
               </SheetDescription>
             </SheetHeader>
             <div className="py-8 space-y-6">
-              <div className="space-y-2">
-                <Label>Photo</Label>
-                <Card>
-                  <CardContent className="p-2 aspect-video flex items-center justify-center bg-secondary">
+              <div className="space-y-3">
+                <Label className="text-base font-medium">Photo</Label>
+                <Card interactive>
+                  <CardContent className="p-3 aspect-video flex items-center justify-center bg-secondary">
                       <Image src="https://placehold.co/600x400.png" alt="Photo placeholder" width={300} height={150} className="rounded-md object-cover" data-ai-hint="nature landscape" />
                   </CardContent>
                 </Card>
-                <Button variant="outline" className="w-full">
+                <Button variant="outline" className="w-full app-button text-base font-semibold">
                     <Camera className="mr-2 h-4 w-4" />
                     Upload Photo
                 </Button>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="note">Note (Optional)</Label>
-                <Textarea id="note" placeholder="What's special about this place?" rows={4} />
+              <div className="space-y-3">
+                <Label htmlFor="note" className="text-base font-medium">Note (Optional)</Label>
+                <Textarea id="note" placeholder="What's special about this place?" rows={4} className="app-input text-base resize-none" />
               </div>
-              <Button size="lg" className="w-full" onClick={handleSaveMoment}>
+              <Button size="lg" className="w-full app-button text-base font-semibold" onClick={handleSaveMoment}>
                 <Save className="mr-2 h-5 w-5" />
                 Save Moment
               </Button>

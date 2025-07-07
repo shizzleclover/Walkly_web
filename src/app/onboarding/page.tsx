@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -82,7 +81,7 @@ export default function OnboardingPage() {
                   <p className="mt-2 text-muted-foreground">
                     Discover new paths, rediscover your city, and fall in love with walking.
                   </p>
-                  <Image src="https://placehold.co/600x400.png" data-ai-hint="walking path" alt="Illustration of a scenic walking path" width={300} height={200} className="mt-8 rounded-lg" />
+                  <Image src="/walking-direction.svg" alt="Illustration of a person walking towards their destination" width={300} height={200} className="mt-8" />
                 </CardContent>
               </Card>
             </CarouselItem>
@@ -98,7 +97,7 @@ export default function OnboardingPage() {
                   <p className="mt-2 text-muted-foreground">
                     Generate intelligent walking routes and track your progress with detailed stats.
                   </p>
-                  <Image src="https://placehold.co/600x400.png" data-ai-hint="map interface" alt="Illustration of a map interface on a phone" width={300} height={200} className="mt-8 rounded-lg" />
+                  <Image src="/adventure-map.svg" alt="Illustration of a person exploring with a map and planning adventures" width={300} height={200} className="mt-8" />
                 </CardContent>
               </Card>
             </CarouselItem>
