@@ -1,8 +1,8 @@
 {
-  "name": "Walkly - Discover Walking Routes",
+  "name": "Walkly",
   "short_name": "Walkly",
-  "description": "Discover new paths and enjoy your walks with AI-powered route generation",
-  "theme_color": "#16A34A",
+  "description": "Your personal walking companion app",
+  "theme_color": "#47d828",
   "background_color": "#ffffff",
   "display": "standalone",
   "start_url": "/",
@@ -12,14 +12,17 @@
     {
       "src": "/android-chrome-192x192.png",
       "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
+      "type": "image/png"
     },
     {
       "src": "/android-chrome-512x512.png",
       "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
+      "type": "image/png"
+    },
+    {
+      "src": "/appicon.png",
+      "sizes": "180x180",
+      "type": "image/png"
     },
     {
       "src": "/apple-touch-icon.png",

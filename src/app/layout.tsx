@@ -3,34 +3,25 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 
 export const metadata: Metadata = {
-  title: 'Walkly',
-  description: 'Discover new paths and enjoy your walks.',
-  manifest: '/manifest.json',
-  icons: [
-    {
-      rel: 'icon',
-      url: '/favicon.ico',
-      sizes: 'any',
-    },
-    {
-      rel: 'icon',
-      url: '/appicon.png',
-      type: 'image/png',
-    },
-    {
-      rel: 'apple-touch-icon',
-      url: '/apple-touch-icon.png',
-      sizes: '180x180',
-    },
-    {
-      rel: 'shortcut icon',
-      url: '/appicon.png',
-    }
-  ],
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: 'hsl(144.2 38.8% 52.3%)' },
-    { media: '(prefers-color-scheme: dark)', color: 'hsl(144.2 45.4% 67.3%)' }
-  ],
+  title: {
+    default: "Walkly",
+    template: "%s | Walkly"
+  },
+  description: "Your personal walking companion app",
+  manifest: "/manifest.json",
+  icons: {
+    icon: [
+      { url: "/appicon.png", sizes: "180x180", type: "image/png" },
+      { url: "/android-chrome-192x192.png", sizes: "192x192", type: "image/png" }
+    ],
+    apple: "/appicon.png",
+    other: [
+      {
+        rel: "apple-touch-icon-precomposed",
+        url: "/appicon.png",
+      }
+    ]
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
@@ -45,6 +36,19 @@ export const metadata: Metadata = {
     'apple-mobile-web-app-status-bar-style': 'default',
   }
 };
+
+export function generateViewport() {
+  return {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+    themeColor: [
+      { media: "(prefers-color-scheme: light)", color: "oklch(0.9711 0.0074 80.7211)" },
+      { media: "(prefers-color-scheme: dark)", color: "oklch(0.2683 0.0279 150.7681)" }
+    ]
+  }
+}
 
 export default function RootLayout({
   children,
