@@ -23,7 +23,7 @@ const formSchema = z.object({
 export default function LoginPage() {
   const [isLoading, setIsLoading] = React.useState(false);
   const [isOtpMode, setIsOtpMode] = React.useState(false);
-  const { signIn, signInWithOtp, user, loading } = useAuthState();
+  const { signIn, signInWithOtp, user, profile, loading } = useAuthState();
   const router = useRouter();
   const { toast } = useToast();
 
@@ -38,9 +38,14 @@ export default function LoginPage() {
   // Redirect if already authenticated
   React.useEffect(() => {
     if (user && !loading) {
-      router.push('/home');
+      // Check if user completed onboarding, if not redirect to onboarding
+      if (user && profile?.onboarding_completed) {
+        router.push('/home');
+      } else if (user && profile && !profile.onboarding_completed) {
+        router.push('/onboarding');
+      }
     }
-  }, [user, loading, router]);
+  }, [user, profile, loading, router]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);

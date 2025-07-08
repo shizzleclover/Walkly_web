@@ -85,9 +85,19 @@ export default function VerifyOtpPage() {
       }
 
       if (data?.user) {
-        console.log('OTP verification successful, redirecting to home');
-        // Successful verification - redirect to home
-        router.push('/home');
+        console.log('OTP verification successful');
+        // Give a moment for profile to load after verification
+        setTimeout(() => {
+          // For new signups, always go to onboarding
+          if (type === 'signup') {
+            console.log('New signup verified, redirecting to onboarding');
+            router.push('/onboarding');
+          } else {
+            // For existing users, check if they completed onboarding
+            console.log('Existing user verified, redirecting to home');
+            router.push('/home'); // Let the splash screen logic handle proper routing
+          }
+        }, 1000);
       } else {
         setError("Something went wrong. Please try again.");
       }

@@ -3,7 +3,7 @@
 import * as React from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { MapPin, BarChart, Star, Check } from "lucide-react";
+import { MapPin, BarChart, Star, Check, Loader2 } from "lucide-react";
 
 import {
   Carousel,
@@ -17,13 +17,17 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { SubscriptionDialog } from "@/components/subscription-dialog";
+import { useAuthState } from "@/hooks/use-auth";
+import { userHelpers } from "@/lib/supabase";
 
 export default function OnboardingPage() {
   const [api, setApi] = React.useState<CarouselApi>();
   const [current, setCurrent] = React.useState(0);
+  const [isCompleting, setIsCompleting] = React.useState(false);
   const router = useRouter();
   const { toast } = useToast();
   const [isDialogOpen, setDialogOpen] = React.useState(false);
+  const { user, profile, loading } = useAuthState();
 
 
   React.useEffect(() => {
@@ -60,12 +64,67 @@ export default function OnboardingPage() {
 
   React.useEffect(() => {
     handleLocationRequest();
-  }, [])
+  }, []);
+
+  // Redirect if user has already completed onboarding
+  React.useEffect(() => {
+    if (!loading && user && profile?.onboarding_completed) {
+      console.log('User has already completed onboarding, redirecting to home');
+      router.push('/home');
+    }
+  }, [user, profile, loading, router]);
+
+  const completeOnboarding = async () => {
+    if (!user?.id) {
+      toast({
+        title: "Error",
+        description: "Please sign in to continue.",
+        variant: "destructive",
+      });
+      router.push('/login');
+      return;
+    }
+
+    setIsCompleting(true);
+    try {
+      const { error } = await userHelpers.markOnboardingCompleted(user.id);
+      
+      if (error) {
+        console.error('Error marking onboarding as completed:', error);
+        toast({
+          title: "Error",
+          description: "Failed to complete onboarding. Please try again.",
+          variant: "destructive",
+        });
+        setIsCompleting(false);
+        return;
+      }
+
+      toast({
+        title: "Welcome to Walkly!",
+        description: "Your account is all set up. Let's start walking!",
+      });
+      
+      router.push('/home');
+    } catch (error) {
+      console.error('Error completing onboarding:', error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
+      setIsCompleting(false);
+    }
+  };
 
 
   return (
     <>
-      <SubscriptionDialog open={isDialogOpen} onOpenChange={setDialogOpen} />
+      <SubscriptionDialog 
+        open={isDialogOpen} 
+        onOpenChange={setDialogOpen} 
+        onSuccess={completeOnboarding} 
+      />
       <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-background">
         <Carousel setApi={setApi} className="w-full max-w-md">
           <CarouselContent>
@@ -134,8 +193,21 @@ export default function OnboardingPage() {
                       <Star className="mr-2 h-4 w-4 animate-subtle-pulse" />
                       Start 7-Day Free Trial
                     </Button>
-                    <Button variant="link" className="text-muted-foreground" size="lg" onClick={() => router.push('/login')}>
-                      Maybe Later
+                    <Button 
+                      variant="link" 
+                      className="text-muted-foreground" 
+                      size="lg" 
+                      onClick={completeOnboarding}
+                      disabled={isCompleting}
+                    >
+                      {isCompleting ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Setting up...
+                        </>
+                      ) : (
+                        'Continue with Free Plan'
+                      )}
                     </Button>
                   </div>
                 </CardContent>
