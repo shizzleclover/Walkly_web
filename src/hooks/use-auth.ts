@@ -13,6 +13,25 @@ export const useAuthState = () => {
   const loadUserProfile = async (userId: string): Promise<UserProfile | null> => {
     try {
       console.log('Loading user profile for:', userId);
+      
+      // Test Supabase connection first
+      const { data: connectionTest, error: connectionError } = await supabase
+        .from('users')
+        .select('count')
+        .limit(1);
+      
+      if (connectionError) {
+        console.error('Supabase connection test failed:', {
+          message: connectionError.message,
+          details: connectionError.details,
+          hint: connectionError.hint,
+          code: connectionError.code
+        });
+        return null;
+      }
+      
+      console.log('Supabase connection successful, fetching user profile...');
+      
       const { data, error } = await supabase
         .from('users')
         .select('*')
@@ -25,7 +44,10 @@ export const useAuthState = () => {
           details: error.details || 'No details',
           hint: error.hint || 'No hint',
           code: error.code || 'No code',
-          fullError: error
+          userId: userId,
+          errorType: typeof error,
+          errorKeys: Object.keys(error),
+          fullError: JSON.stringify(error, null, 2)
         });
         
         // If user profile doesn't exist (new user), return null gracefully
@@ -44,8 +66,12 @@ export const useAuthState = () => {
     } catch (error: any) {
       console.error('Unexpected error in loadUserProfile:', {
         message: error?.message || 'Unknown error',
+        name: error?.name || 'Unknown error type',
         stack: error?.stack || 'No stack trace',
-        fullError: error
+        userId: userId,
+        errorType: typeof error,
+        errorKeys: error ? Object.keys(error) : [],
+        fullError: JSON.stringify(error, null, 2)
       });
       return null;
     }

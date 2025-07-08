@@ -1,20 +1,41 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+// Validate environment variables
+if (!supabaseUrl) {
+  throw new Error('Missing required environment variable: NEXT_PUBLIC_SUPABASE_URL')
+}
+
+if (!supabaseAnonKey) {
+  throw new Error('Missing required environment variable: NEXT_PUBLIC_SUPABASE_ANON_KEY')
+}
+
+console.log('Supabase configuration loaded:', {
+  url: supabaseUrl,
+  keyLength: supabaseAnonKey.length,
+  keyPrefix: supabaseAnonKey.substring(0, 20) + '...'
+})
 
 // Singleton pattern to prevent multiple client instances
 let supabaseInstance: ReturnType<typeof createClient> | null = null
 
 export const supabase = (() => {
   if (!supabaseInstance) {
-    supabaseInstance = createClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true
-      }
-    })
+    try {
+      supabaseInstance = createClient(supabaseUrl, supabaseAnonKey, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true
+        }
+      })
+      console.log('Supabase client created successfully')
+    } catch (error) {
+      console.error('Failed to create Supabase client:', error)
+      throw error
+    }
   }
   return supabaseInstance
 })()
