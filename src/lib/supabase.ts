@@ -40,6 +40,23 @@ export const supabase = (() => {
   return supabaseInstance
 })()
 
+// Connection test function
+export const testSupabaseConnection = async () => {
+  try {
+    console.log('Testing Supabase connection...')
+    const { data, error } = await supabase.auth.getSession()
+    if (error) {
+      console.error('Supabase connection test failed:', error)
+      return { success: false, error: error.message }
+    }
+    console.log('Supabase connection test successful')
+    return { success: true, error: null }
+  } catch (error) {
+    console.error('Supabase connection test failed with exception:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+}
+
 // Auth helper functions
 export const authHelpers = {
   async signUp(email: string, password: string, username?: string) {
@@ -73,11 +90,37 @@ export const authHelpers = {
   },
 
   signIn: async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
-    return { data, error }
+    console.log('Starting signin process for:', email);
+    
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+      
+      if (error) {
+        console.error('SignIn error details:', {
+          message: error.message,
+          status: error.status,
+          name: error.name
+        });
+        
+        // Provide more specific error messages
+        if (error.status === 401) {
+          if (error.message.includes('Invalid login credentials')) {
+            throw new Error('Invalid email or password. Please check your credentials and try again.');
+          } else {
+            throw new Error('Authentication service unavailable. The API key may be invalid or expired. Please contact support.');
+          }
+        }
+      }
+      
+      console.log('SignIn successful for:', email);
+      return { data, error }
+    } catch (error) {
+      console.error('SignIn exception:', error);
+      throw error;
+    }
   },
 
   signInWithOtp: async (email: string) => {

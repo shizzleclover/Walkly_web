@@ -207,8 +207,13 @@ export const useAuthState = () => {
   }
 
   const signIn = async (email: string, password: string) => {
-    const { data, error } = await authHelpers.signIn(email, password)
-    return { data, error }
+    try {
+      const { data, error } = await authHelpers.signIn(email, password)
+      return { data, error }
+    } catch (error) {
+      console.error('Auth hook signIn error:', error)
+      return { data: null, error }
+    }
   }
 
   const signInWithOtp = async (email: string) => {
