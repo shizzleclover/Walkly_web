@@ -2,18 +2,30 @@
 
 import * as React from "react";
 import { AppLayout } from "@/components/app-layout";
-import { WalklyMap } from "@/components/map/walkly-map";
-import { WalkSessionOverlay } from "@/components/map/walk-session-overlay";
+import { LazyMap } from "@/components/map/lazy-map";
 import { useWalkSession } from "@/hooks/use-walk-session";
 import { useAuthState } from "@/hooks/use-auth";
+import { useLoading } from "@/components/loading-provider";
 import { Card, CardContent } from "@/components/ui/card";
 import { AlertCircle, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useRouter } from "next/navigation";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { useNavigation } from "@/hooks/use-navigation";
 
 export default function MapPage() {
-  const router = useRouter();
+  const { navigateToLogin, hideLoading } = useNavigation();
   const { user, loading: authLoading } = useAuthState();
+
+  // Hide loading when the page is fully loaded
+  React.useEffect(() => {
+    if (!authLoading && user) {
+      // Small delay to ensure components are mounted
+      const timer = setTimeout(() => {
+        hideLoading();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [authLoading, user, hideLoading]);
   
   const {
     walkState,
@@ -92,10 +104,11 @@ export default function MapPage() {
     return (
       <AppLayout>
         <div className="h-full flex items-center justify-center bg-background">
-          <div className="text-center space-y-4">
-            <div className="animate-spin mx-auto w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
-            <p className="text-muted-foreground">Loading...</p>
-          </div>
+          <LoadingSpinner 
+            size="large" 
+            text="Authenticating..." 
+            centered 
+          />
         </div>
       </AppLayout>
     );
@@ -113,7 +126,7 @@ export default function MapPage() {
               <p className="text-muted-foreground">
                 Please sign in to start tracking your walks and create routes.
               </p>
-              <Button onClick={() => router.push('/login')} className="w-full">
+              <Button onClick={navigateToLogin} className="w-full">
                 <LogIn className="w-4 h-4 mr-2" />
                 Sign In
               </Button>
@@ -124,36 +137,41 @@ export default function MapPage() {
     );
   }
 
+  // Prepare props for lazy-loaded components
+  const mapProps = {
+    walkState,
+    isTracking,
+    generatedRoute: generatedRoute?.coordinates || [],
+    breadcrumbTrail,
+    moments,
+    onLocationUpdate: handleLocationUpdate,
+    onMomentPin: handleMomentPin,
+    className: "w-full h-full"
+  };
+
+  const overlayProps = {
+    walkState,
+    liveStats,
+    currentSession,
+    generatedRoute,
+    isLoading,
+    error,
+    onGenerateRoute: handleGenerateRoute,
+    onStartWalk: startWalk,
+    onPauseWalk: pauseWalk,
+    onResumeWalk: resumeWalk,
+    onEndWalk: endWalk,
+    onTryAnotherRoute: handleTryAnotherRoute,
+    onAddMoment: handleAddMoment
+  };
+
   return (
     <AppLayout>
       <div className="relative h-full overflow-hidden">
-        {/* Main Map Component */}
-        <WalklyMap
-          walkState={walkState}
-          isTracking={isTracking}
-          generatedRoute={generatedRoute?.coordinates || []}
-          breadcrumbTrail={breadcrumbTrail}
-          moments={moments}
-          onLocationUpdate={handleLocationUpdate}
-          onMomentPin={handleMomentPin}
-          className="w-full h-full"
-        />
-
-        {/* Walk Session Overlay */}
-        <WalkSessionOverlay
-          walkState={walkState}
-          liveStats={liveStats}
-          currentSession={currentSession}
-          generatedRoute={generatedRoute}
-          isLoading={isLoading}
-          error={error}
-          onGenerateRoute={handleGenerateRoute}
-          onStartWalk={startWalk}
-          onPauseWalk={pauseWalk}
-          onResumeWalk={resumeWalk}
-          onEndWalk={endWalk}
-          onTryAnotherRoute={handleTryAnotherRoute}
-          onAddMoment={handleAddMoment}
+        {/* Lazy-loaded Map with Overlay */}
+        <LazyMap 
+          mapProps={mapProps}
+          overlayProps={overlayProps}
         />
 
         {/* Development Info Overlay (optional - remove in production) */}
