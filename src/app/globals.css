@@ -79,6 +79,16 @@ body {
     overscroll-behavior-y: none;
   }
 
+  /* Ensure map containers can have proper dimensions */
+  .mapboxgl-map {
+    font-family: inherit !important;
+  }
+  
+  /* Fix for Mapbox GL JS with Tailwind */
+  .mapboxgl-canvas-container {
+    position: relative !important;
+  }
+
   /* Native app animations */
   * {
     /* Faster transitions for native feel */

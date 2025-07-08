@@ -167,7 +167,7 @@ export default function MapPage() {
 
   return (
     <AppLayout>
-      <div className="relative h-full overflow-hidden">
+      <div className="relative h-[calc(100vh-5rem)] overflow-hidden">
         {/* Lazy-loaded Map with Overlay */}
         <LazyMap 
           mapProps={mapProps}

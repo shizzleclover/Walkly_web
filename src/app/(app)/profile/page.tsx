@@ -15,6 +15,7 @@ import { Progress } from "@/components/ui/progress";
 import { useAuthState } from "@/hooks/use-auth";
 import { supabase } from "@/lib/supabase";
 import { WalkingAnimation } from "@/components/walking-animation";
+import { useLoading } from "@/components/loading-provider";
 
 interface WalkStats {
   totalWalks: number;
@@ -207,15 +208,29 @@ function EmptyStateCard({ title, description, actionText, actionHref, icon: Icon
 }
 
 export default function ProfilePage() {
-  const { user, profile, hasPremiumAccess, isOnTrial, daysLeftInTrial } = useAuthState();
+  const { user, profile, hasPremiumAccess, isOnTrial, daysLeftInTrial, loading: authLoading } = useAuthState();
+  const { hideLoading } = useLoading();
   const [walkStats, setWalkStats] = React.useState<WalkStats | null>(null);
   const [monthlyData, setMonthlyData] = React.useState<MonthlyWalkData[]>([]);
   const [achievements, setAchievements] = React.useState<Achievement[]>([]);
   const [loading, setLoading] = React.useState(true);
 
+  // Hide global loading when page data is ready
+  React.useEffect(() => {
+    if (!authLoading && !loading && user) {
+      const timer = setTimeout(() => {
+        hideLoading();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [authLoading, loading, user, hideLoading]);
+
   React.useEffect(() => {
     async function fetchUserData() {
-      if (!user?.id) return;
+      if (!user?.id) {
+        setLoading(false);
+        return;
+      }
       
       setLoading(true);
       try {

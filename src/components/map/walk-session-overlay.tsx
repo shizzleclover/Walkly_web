@@ -20,7 +20,8 @@ import {
   Route,
   Camera,
   Settings,
-  AlertCircle
+  AlertCircle,
+  Clock
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { type WalkState, type LiveStats, type WalkSession } from "@/hooks/use-walk-session";
@@ -59,6 +60,8 @@ export function WalkSessionOverlay({
   className = ""
 }: WalkSessionOverlayProps) {
   const [selectedDuration, setSelectedDuration] = React.useState(30);
+  const [customDuration, setCustomDuration] = React.useState("");
+  const [isCustomDuration, setIsCustomDuration] = React.useState(false);
   const [walkTitle, setWalkTitle] = React.useState("");
   const [momentDescription, setMomentDescription] = React.useState("");
   const [showWalkDialog, setShowWalkDialog] = React.useState(false);
@@ -84,8 +87,53 @@ export function WalkSessionOverlay({
     return `${kmh.toFixed(1)} km/h`;
   };
 
+  const handlePresetDuration = (duration: number) => {
+    setSelectedDuration(duration);
+    setIsCustomDuration(false);
+    setCustomDuration("");
+  };
+
+  const handleCustomDurationChange = (value: string) => {
+    // Only allow numbers
+    const numericValue = value.replace(/[^0-9]/g, '');
+    setCustomDuration(numericValue);
+    
+    if (numericValue) {
+      const duration = parseInt(numericValue);
+      if (duration >= 5) {
+        setSelectedDuration(duration);
+        setIsCustomDuration(true);
+      }
+    }
+  };
+
+  const getEffectiveDuration = () => {
+    if (isCustomDuration && customDuration) {
+      const duration = parseInt(customDuration);
+      return duration >= 5 ? duration : 5;
+    }
+    return selectedDuration;
+  };
+
+  const isGenerateDisabled = () => {
+    if (isCustomDuration) {
+      const duration = parseInt(customDuration);
+      return !customDuration || duration < 5;
+    }
+    return false;
+  };
+
   const handleGenerateRoute = () => {
-    onGenerateRoute(selectedDuration);
+    const duration = getEffectiveDuration();
+    if (duration < 5) {
+      toast({
+        title: "Invalid Duration",
+        description: "Walk duration must be at least 5 minutes.",
+        variant: "destructive",
+      });
+      return;
+    }
+    onGenerateRoute(duration);
   };
 
   const handleStartWalk = () => {
@@ -124,27 +172,73 @@ export function WalkSessionOverlay({
                 Choose your desired walk duration to generate a circular route
               </p>
               
-              <div className="flex flex-wrap justify-center gap-2">
-                {durations.map((duration) => (
-                  <Badge
-                    key={duration}
-                    variant={selectedDuration === duration ? "default" : "outline"}
-                    className="cursor-pointer"
-                    onClick={() => setSelectedDuration(duration)}
-                  >
-                    {duration} min
-                  </Badge>
-                ))}
+              {/* Preset Duration Options */}
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">Quick Select</Label>
+                <div className="flex flex-wrap justify-center gap-2">
+                  {durations.map((duration) => (
+                    <Badge
+                      key={duration}
+                      variant={!isCustomDuration && selectedDuration === duration ? "default" : "outline"}
+                      className="cursor-pointer"
+                      onClick={() => handlePresetDuration(duration)}
+                    >
+                      {duration} min
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+
+              {/* Custom Duration Input */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium flex items-center gap-2">
+                  <Clock className="w-4 h-4" />
+                  Custom Duration
+                </Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="text"
+                    placeholder="Enter minutes (min: 5)"
+                    value={customDuration}
+                    onChange={(e) => handleCustomDurationChange(e.target.value)}
+                    className={`text-center ${
+                      isCustomDuration 
+                        ? "border-primary ring-1 ring-primary/20" 
+                        : ""
+                    }`}
+                  />
+                  <span className="text-sm text-muted-foreground min-w-fit">minutes</span>
+                </div>
+                {customDuration && parseInt(customDuration) < 5 && (
+                  <p className="text-xs text-destructive">
+                    Minimum duration is 5 minutes
+                  </p>
+                )}
+                {isCustomDuration && customDuration && parseInt(customDuration) >= 5 && (
+                  <p className="text-xs text-primary">
+                    ✓ Custom duration: {customDuration} minutes
+                  </p>
+                )}
+              </div>
+
+              {/* Current Selection Display */}
+              <div className="bg-muted/50 rounded-lg p-3 border">
+                <p className="text-sm font-medium">
+                  Selected Duration: <span className="text-primary">{getEffectiveDuration()} minutes</span>
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Estimated distance: ~{(getEffectiveDuration() * 0.083).toFixed(1)}km
+                </p>
               </div>
 
               <Button 
                 onClick={handleGenerateRoute}
-                disabled={isLoading}
+                disabled={isLoading || isGenerateDisabled()}
                 className="w-full"
                 size="lg"
               >
                 <MapPin className="w-4 h-4 mr-2" />
-                {isLoading ? "Generating..." : "Generate Route"}
+                {isLoading ? "Generating..." : `Generate ${getEffectiveDuration()}-min Route`}
               </Button>
 
               {error && (
@@ -184,7 +278,7 @@ export function WalkSessionOverlay({
               <div className="animate-spin mx-auto w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
               <h3 className="text-lg font-semibold">Generating Route...</h3>
               <p className="text-sm text-muted-foreground">
-                Creating a {selectedDuration}-minute circular walking route
+                Creating a {getEffectiveDuration()}-minute circular walking route
               </p>
             </div>
           </CardContent>

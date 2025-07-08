@@ -63,10 +63,10 @@ export function WalklyMap({
     // Basic online check
     const isOnline = navigator.onLine;
     
-    // Test Mapbox API reachability
+    // Test Mapbox API reachability with correct endpoint
     let mapboxReachable = false;
     try {
-      const response = await fetch('https://api.mapbox.com/styles/v1/mapbox?access_token=' + MAPBOX_TOKEN, {
+      const response = await fetch('https://api.mapbox.com/styles/v1/mapbox/streets-v12?access_token=' + MAPBOX_TOKEN, {
         method: 'HEAD',
         timeout: 5000
       } as RequestInit);
@@ -112,7 +112,23 @@ export function WalklyMap({
   };
 
   const initializeMap = async () => {
-    if (!mapContainer.current) return;
+    if (!mapContainer.current) {
+      console.error('Map container ref is null');
+      return;
+    }
+
+    // Check if map is already initialized
+    if (map.current) {
+      console.log('Map already initialized, skipping');
+      return;
+    }
+
+    console.log('Initializing map with container dimensions:', {
+      width: mapContainer.current.clientWidth,
+      height: mapContainer.current.clientHeight,
+      offsetWidth: mapContainer.current.offsetWidth,
+      offsetHeight: mapContainer.current.offsetHeight
+    });
 
     // Check if Mapbox token is available
     if (!MAPBOX_TOKEN) {
@@ -148,10 +164,13 @@ export function WalklyMap({
         retryDelayMax: 5000
       });
 
+      console.log('Mapbox map instance created:', map.current);
+
       // Add navigation control
       map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
       map.current.on('load', () => {
+        console.log('Map loaded successfully');
         setIsMapLoaded(true);
         setMapError(null);
         setRetryCount(0); // Reset retry count on success
@@ -159,84 +178,96 @@ export function WalklyMap({
         // Initialize data sources
         if (map.current) {
           // Generated route source
-          map.current.addSource('route', {
-            type: 'geojson',
-            data: {
-              type: 'Feature',
-              properties: {},
-              geometry: {
-                type: 'LineString',
-                coordinates: []
+          if (!map.current.getSource('route')) {
+            map.current.addSource('route', {
+              type: 'geojson',
+              data: {
+                type: 'Feature',
+                properties: {},
+                geometry: {
+                  type: 'LineString',
+                  coordinates: []
+                }
               }
-            }
-          });
+            });
+          }
 
           // Breadcrumb trail source
-          map.current.addSource('breadcrumbs', {
-            type: 'geojson',
-            data: {
-              type: 'Feature',
-              properties: {},
-              geometry: {
-                type: 'LineString',
-                coordinates: []
+          if (!map.current.getSource('breadcrumbs')) {
+            map.current.addSource('breadcrumbs', {
+              type: 'geojson',
+              data: {
+                type: 'Feature',
+                properties: {},
+                geometry: {
+                  type: 'LineString',
+                  coordinates: []
+                }
               }
-            }
-          });
+            });
+          }
 
           // Moments source
-          map.current.addSource('moments', {
-            type: 'geojson',
-            data: {
-              type: 'FeatureCollection',
-              features: []
-            }
-          });
+          if (!map.current.getSource('moments')) {
+            map.current.addSource('moments', {
+              type: 'geojson',
+              data: {
+                type: 'FeatureCollection',
+                features: []
+              }
+            });
+          }
 
           // Add route layer
-          map.current.addLayer({
-            id: 'route',
-            type: 'line',
-            source: 'route',
-            layout: {
-              'line-join': 'round',
-              'line-cap': 'round'
-            },
-            paint: {
-              'line-color': '#3B82F6',
-              'line-width': 4,
-              'line-opacity': 0.8
-            }
-          });
+          if (!map.current.getLayer('route')) {
+            map.current.addLayer({
+              id: 'route',
+              type: 'line',
+              source: 'route',
+              layout: {
+                'line-join': 'round',
+                'line-cap': 'round'
+              },
+              paint: {
+                'line-color': '#3B82F6',
+                'line-width': 4,
+                'line-opacity': 0.8
+              }
+            });
+          }
 
           // Add breadcrumb layer
-          map.current.addLayer({
-            id: 'breadcrumbs',
-            type: 'line',
-            source: 'breadcrumbs',
-            layout: {
-              'line-join': 'round',
-              'line-cap': 'round'
-            },
-            paint: {
-              'line-color': '#10B981',
-              'line-width': 3,
-              'line-dasharray': [2, 2]
-            }
-          });
+          if (!map.current.getLayer('breadcrumbs')) {
+            map.current.addLayer({
+              id: 'breadcrumbs',
+              type: 'line',
+              source: 'breadcrumbs',
+              layout: {
+                'line-join': 'round',
+                'line-cap': 'round'
+              },
+              paint: {
+                'line-color': '#10B981',
+                'line-width': 3,
+                'line-dasharray': [2, 2]
+              }
+            });
+          }
 
           // Add moments layer
-          map.current.addLayer({
-            id: 'moments',
-            type: 'circle',
-            source: 'moments',
-            paint: {
-              'circle-radius': 8,
-              'circle-color': '#F59E0B',
-              'circle-stroke-width': 2,
-              'circle-stroke-color': '#FFFFFF'
-            }
-          });
+          if (!map.current.getLayer('moments')) {
+            map.current.addLayer({
+              id: 'moments',
+              type: 'circle',
+              source: 'moments',
+              paint: {
+                'circle-radius': 8,
+                'circle-color': '#F59E0B',
+                'circle-stroke-width': 2,
+                'circle-stroke-color': '#FFFFFF'
+              }
+            });
+          }
 
           // Handle map clicks for moments
           map.current.on('click', (e) => {
@@ -281,16 +312,33 @@ export function WalklyMap({
 
   // Initialize map
   React.useEffect(() => {
-    // Check initial connectivity
-    checkConnectivity().then(() => {
-      initializeMap();
-    });
+    // Small delay to ensure DOM is fully rendered
+    const timer = setTimeout(() => {
+      // Check initial connectivity
+      checkConnectivity().then(() => {
+        initializeMap();
+      });
+    }, 100);
 
     return () => {
+      clearTimeout(timer);
+      
+      // Clean up location tracking
       if (watchId.current) {
         navigator.geolocation.clearWatch(watchId.current);
+        watchId.current = null;
       }
-      map.current?.remove();
+      
+      // Clean up map
+      if (map.current) {
+        map.current.remove();
+        map.current = null;
+      }
+      
+      // Reset states
+      setIsMapLoaded(false);
+      setMapError(null);
+      setRetryCount(0);
     };
   }, []);
 
@@ -320,23 +368,27 @@ export function WalklyMap({
   // Update route when generatedRoute changes
   React.useEffect(() => {
     if (isMapLoaded && map.current) {
-      const source = map.current.getSource('route') as mapboxgl.GeoJSONSource;
-      if (source) {
-        source.setData({
-          type: 'Feature',
-          properties: {},
-          geometry: {
-            type: 'LineString',
-            coordinates: generatedRoute as number[][]
-          }
-        });
+      try {
+        const source = map.current.getSource('route') as mapboxgl.GeoJSONSource;
+        if (source && source.setData) {
+          source.setData({
+            type: 'Feature',
+            properties: {},
+            geometry: {
+              type: 'LineString',
+              coordinates: generatedRoute as number[][]
+            }
+          });
 
-        // Fit to route if it exists
-        if (generatedRoute.length > 0) {
-          const bounds = new mapboxgl.LngLatBounds();
-          generatedRoute.forEach(coord => bounds.extend(coord));
-          map.current?.fitBounds(bounds, { padding: 50 });
+          // Fit to route if it exists
+          if (generatedRoute.length > 0) {
+            const bounds = new mapboxgl.LngLatBounds();
+            generatedRoute.forEach(coord => bounds.extend(coord));
+            map.current?.fitBounds(bounds, { padding: 50 });
+          }
         }
+      } catch (error) {
+        console.warn('Error updating route source:', error);
       }
     }
   }, [generatedRoute, isMapLoaded]);
@@ -344,16 +396,20 @@ export function WalklyMap({
   // Update breadcrumb trail when it changes
   React.useEffect(() => {
     if (isMapLoaded && map.current) {
-      const source = map.current.getSource('breadcrumbs') as mapboxgl.GeoJSONSource;
-      if (source) {
-        source.setData({
-          type: 'Feature',
-          properties: {},
-          geometry: {
-            type: 'LineString',
-            coordinates: breadcrumbTrail as number[][]
-          }
-        });
+      try {
+        const source = map.current.getSource('breadcrumbs') as mapboxgl.GeoJSONSource;
+        if (source && source.setData) {
+          source.setData({
+            type: 'Feature',
+            properties: {},
+            geometry: {
+              type: 'LineString',
+              coordinates: breadcrumbTrail as number[][]
+            }
+          });
+        }
+      } catch (error) {
+        console.warn('Error updating breadcrumbs source:', error);
       }
     }
   }, [breadcrumbTrail, isMapLoaded]);
@@ -361,25 +417,29 @@ export function WalklyMap({
   // Update moments when they change
   React.useEffect(() => {
     if (isMapLoaded && map.current) {
-      const source = map.current.getSource('moments') as mapboxgl.GeoJSONSource;
-      if (source) {
-        const features = moments.map(moment => ({
-          type: 'Feature' as const,
-          properties: {
-            id: moment.id,
-            description: moment.description,
-            photo_url: moment.photo_url
-          },
-          geometry: {
-            type: 'Point' as const,
-            coordinates: [moment.lng, moment.lat]
-          }
-        }));
+      try {
+        const source = map.current.getSource('moments') as mapboxgl.GeoJSONSource;
+        if (source && source.setData) {
+          const features = moments.map(moment => ({
+            type: 'Feature' as const,
+            properties: {
+              id: moment.id,
+              description: moment.description,
+              photo_url: moment.photo_url
+            },
+            geometry: {
+              type: 'Point' as const,
+              coordinates: [moment.lng, moment.lat]
+            }
+          }));
 
-        source.setData({
-          type: 'FeatureCollection',
-          features
-        });
+          source.setData({
+            type: 'FeatureCollection',
+            features
+          });
+        }
+      } catch (error) {
+        console.warn('Error updating moments source:', error);
       }
     }
   }, [moments, isMapLoaded]);
@@ -395,6 +455,13 @@ export function WalklyMap({
     return () => stopLocationTracking();
   }, [isTracking]);
 
+  // Update user marker when map becomes ready and we have location
+  React.useEffect(() => {
+    if (isMapLoaded && userLocation && map.current && mapContainer.current) {
+      updateUserMarker(userLocation.coords);
+    }
+  }, [isMapLoaded, userLocation]);
+
   const getCurrentLocation = () => {
     if (!navigator.geolocation) {
       setLocationError('Geolocation is not supported by this browser.');
@@ -409,8 +476,12 @@ export function WalklyMap({
         };
         setUserLocation(newLocation);
         setLocationError(null);
-        updateUserMarker(position.coords);
-        centerMapOnUser(position.coords);
+        
+        // Only update marker and center map if map is ready
+        if (map.current && mapContainer.current) {
+          updateUserMarker(position.coords);
+          centerMapOnUser(position.coords);
+        }
         
         if (onLocationUpdate) {
           onLocationUpdate(position.coords);
@@ -437,7 +508,11 @@ export function WalklyMap({
           timestamp: position.timestamp
         };
         setUserLocation(newLocation);
-        updateUserMarker(position.coords);
+        
+        // Only update marker if map is ready
+        if (map.current && mapContainer.current) {
+          updateUserMarker(position.coords);
+        }
         
         if (onLocationUpdate) {
           onLocationUpdate(position.coords);
@@ -462,37 +537,56 @@ export function WalklyMap({
   };
 
   const updateUserMarker = (coords: GeolocationCoordinates) => {
-    if (!map.current) return;
+    if (!map.current || !mapContainer.current) {
+      console.warn('Map not ready for marker update');
+      return;
+    }
 
-    const lngLat: mapboxgl.LngLatLike = [coords.longitude, coords.latitude];
+    try {
+      const lngLat: mapboxgl.LngLatLike = [coords.longitude, coords.latitude];
 
-    if (userMarker.current) {
-      userMarker.current.setLngLat(lngLat);
-    } else {
-      // Create custom user marker
-      const el = document.createElement('div');
-      el.className = 'user-location-marker';
-      el.style.backgroundImage = 'radial-gradient(circle, #3B82F6 30%, rgba(59, 130, 246, 0.3) 70%)';
-      el.style.width = '20px';
-      el.style.height = '20px';
-      el.style.borderRadius = '50%';
-      el.style.border = '3px solid white';
-      el.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.3)';
+      if (userMarker.current) {
+        userMarker.current.setLngLat(lngLat);
+      } else {
+        // Create custom user marker
+        const el = document.createElement('div');
+        el.className = 'user-location-marker';
+        el.style.backgroundImage = 'radial-gradient(circle, #3B82F6 30%, rgba(59, 130, 246, 0.3) 70%)';
+        el.style.width = '20px';
+        el.style.height = '20px';
+        el.style.borderRadius = '50%';
+        el.style.border = '3px solid white';
+        el.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.3)';
 
-      userMarker.current = new mapboxgl.Marker(el)
-        .setLngLat(lngLat)
-        .addTo(map.current);
+        // Additional safety check before adding to map
+        if (map.current && map.current.isStyleLoaded()) {
+          userMarker.current = new mapboxgl.Marker(el)
+            .setLngLat(lngLat)
+            .addTo(map.current);
+        } else {
+          console.warn('Map style not loaded, skipping marker creation');
+        }
+      }
+    } catch (error) {
+      console.error('Error updating user marker:', error);
     }
   };
 
   const centerMapOnUser = (coords: GeolocationCoordinates) => {
-    if (!map.current) return;
+    if (!map.current || !mapContainer.current) {
+      console.warn('Map not ready for centering');
+      return;
+    }
 
-    map.current.flyTo({
-      center: [coords.longitude, coords.latitude],
-      zoom: 16,
-      duration: 1000
-    });
+    try {
+      map.current.flyTo({
+        center: [coords.longitude, coords.latitude],
+        zoom: 16,
+        duration: 1000
+      });
+    } catch (error) {
+      console.error('Error centering map on user:', error);
+    }
   };
 
   const handleRecenter = () => {
@@ -559,8 +653,8 @@ export function WalklyMap({
   }
 
   return (
-    <div className={`relative ${className}`}>
-      <div ref={mapContainer} className="w-full h-full" />
+    <div className={`relative w-full h-full ${className}`}>
+      <div ref={mapContainer} className="w-full h-full min-h-[400px]" />
       
       {/* Map Controls */}
       <div className="absolute top-4 right-4 flex flex-col gap-2">
