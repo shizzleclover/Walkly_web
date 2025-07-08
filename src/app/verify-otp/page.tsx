@@ -1,185 +1,201 @@
 "use client";
 
-import * as React from "react";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { WalkingAnimation } from "@/components/walking-animation";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuthState } from "@/hooks/use-auth";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useToast } from "@/hooks/use-toast";
+import { useState, useEffect } from "react";
+import { ChevronLeft, Shield, Mail } from "lucide-react";
 import Link from "next/link";
-import { Loader2, ArrowLeft, Mail } from "lucide-react";
 
 const formSchema = z.object({
-  otp: z.string().min(6, "OTP must be 6 digits").max(6, "OTP must be 6 digits"),
+  token: z.string().min(6, { message: "Verification code must be at least 6 characters." }),
 });
 
 export default function VerifyOtpPage() {
-  const [isLoading, setIsLoading] = React.useState(false);
-  const [isResending, setIsResending] = React.useState(false);
-  const { verifyOtp, signInWithOtp, user, loading } = useAuthState();
+  const { verifyOtp, signInWithOtp } = useAuthState();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { toast } = useToast();
-
-  const email = searchParams.get('email') || '';
-  const type = (searchParams.get('type') as 'signup' | 'recovery' | 'email') || 'email';
+  const [isLoading, setIsLoading] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [canResend, setCanResend] = useState(false);
+  const [countdown, setCountdown] = useState(60); // 60 second countdown
+  
+  const email = searchParams.get("email");
+  const type = searchParams.get("type") as 'signup' | 'recovery' | 'email' || 'email';
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      otp: "",
+      token: "",
     },
   });
 
-  // Redirect if already authenticated
-  React.useEffect(() => {
-    if (user && !loading) {
-      router.push('/home');
-    }
-  }, [user, loading, router]);
-
-  // Redirect if no email provided
-  React.useEffect(() => {
+  // Redirect if no email
+  useEffect(() => {
     if (!email) {
       router.push('/login');
     }
   }, [email, router]);
 
+  // Start countdown on component mount
+  useEffect(() => {
+    if (countdown > 0) {
+      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+      return () => clearTimeout(timer);
+    } else {
+      setCanResend(true);
+    }
+  }, [countdown]);
+
+  if (!email) {
+    return null; // Redirecting...
+  }
+
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    setIsLoading(true);
+    if (!email) return;
     
+    setIsLoading(true);
+    setError("");
+
     try {
-      console.log('Submitting OTP verification for:', email, 'type:', type);
-      const { error } = await verifyOtp(email, values.otp, type);
+      console.log('Attempting OTP verification for:', email, 'type:', type);
+      const { data, error } = await verifyOtp(email!, values.token, type);
       
       if (error) {
-        console.error('OTP verification error:', error);
-        toast({
-          variant: "destructive",
-          title: "Verification failed",
-          description: error.message || "Invalid OTP. Please try again.",
-        });
+        console.error('OTP verification failed:', error);
+        
+        // Handle specific error cases
+        if (error.message?.includes('expired') || error.message?.includes('invalid')) {
+          setError("The verification code has expired or is invalid. Please request a new one.");
+          setCanResend(true);
+          setCountdown(0);
+        } else if (error.message?.includes('Token')) {
+          setError("Invalid verification code. Please check your code and try again.");
+        } else {
+          setError(error.message || "Failed to verify code. Please try again.");
+        }
+        return;
+      }
+
+      if (data?.user) {
+        console.log('OTP verification successful, redirecting to home');
+        // Successful verification - redirect to home
+        router.push('/home');
       } else {
-        console.log('OTP verification successful');
-        
-        if (type === 'signup') {
-          toast({
-            title: "Welcome to Walkly! 🎉",
-            description: "Your email has been verified. Setting up your account...",
-          });
-        } else {
-          toast({
-            title: "Email verified!",
-            description: "Your email has been successfully verified.",
-          });
-        }
-        
-        // Redirect based on type
-        if (type === 'recovery') {
-          router.push('/reset-password');
-        } else {
-          // For signup and regular verification, go to home
-          router.push('/home');
-        }
+        setError("Something went wrong. Please try again.");
       }
     } catch (error: any) {
-      console.error('Error in OTP verification:', error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message || "An unexpected error occurred. Please try again.",
-      });
+      console.error('Unexpected error during OTP verification:', error);
+      setError("An unexpected error occurred. Please try again.");
     } finally {
       setIsLoading(false);
     }
   }
 
   async function handleResendOtp() {
-    setIsResending(true);
+    if (!canResend || resendLoading || !email) return;
     
+    setResendLoading(true);
+    setError("");
+
     try {
-      const { error } = await signInWithOtp(email);
+      console.log('Resending OTP to:', email);
+      const { data, error } = await signInWithOtp(email!);
       
       if (error) {
-        toast({
-          variant: "destructive",
-          title: "Failed to resend",
-          description: error.message || "Failed to resend OTP. Please try again.",
-        });
+        console.error('Failed to resend OTP:', error);
+        setError(error.message || "Failed to resend verification code. Please try again.");
       } else {
-        toast({
-          title: "OTP Sent",
-          description: "A new verification code has been sent to your email.",
-        });
+        console.log('OTP resent successfully');
+        // Reset countdown and disable resend button
+        setCountdown(60);
+        setCanResend(false);
+        setError("");
+        
+        // Show success message briefly
+        const successMessage = "A new verification code has been sent to your email.";
+        setError(""); // Clear any previous errors
+        
+        // You might want to show a toast here instead
+        console.log(successMessage);
       }
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "An unexpected error occurred. Please try again.",
-      });
+    } catch (error: any) {
+      console.error('Unexpected error resending OTP:', error);
+      setError("Failed to resend verification code. Please try again.");
     } finally {
-      setIsResending(false);
+      setResendLoading(false);
     }
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
+  const getTitle = () => {
+    switch (type) {
+      case 'signup':
+        return 'Verify Your Email';
+      case 'recovery':
+        return 'Reset Your Password';
+      default:
+        return 'Enter Verification Code';
+    }
+  };
+
+  const getDescription = () => {
+    switch (type) {
+      case 'signup':
+        return `We've sent a verification code to ${email}. Enter the code below to complete your account setup.`;
+      case 'recovery':
+        return `We've sent a password reset code to ${email}. Enter the code below to reset your password.`;
+      default:
+        return `We've sent a verification code to ${email}. Enter the code below to continue.`;
+    }
+  };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-br from-primary/5 via-background to-accent/5">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4 safe-area-top safe-area-bottom">
       <div className="w-full max-w-md space-y-6">
-        <div className="text-center space-y-2">
-          <WalkingAnimation className="mx-auto h-16 w-16 text-primary" />
-          <h1 className="text-3xl font-bold font-headline text-foreground">
-            Verify Your Email
-          </h1>
-          <p className="text-muted-foreground">
-            Enter the verification code sent to
-          </p>
-          <p className="text-sm font-medium text-foreground">
-            {email}
-          </p>
+        <div className="flex items-center justify-between">
+          <Link href="/register" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors app-button">
+            <ChevronLeft className="mr-1 h-4 w-4" />
+            Back
+          </Link>
         </div>
 
-        <Card className="shadow-lg border-border/50">
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl text-center">Enter Verification Code</CardTitle>
-            <CardDescription className="text-center">
-              We've sent a 6-digit code to your email address
-            </CardDescription>
+        <Card className="shadow-lg">
+          <CardHeader className="space-y-4 text-center">
+            <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+              <Shield className="w-6 h-6 text-primary" />
+            </div>
+            <div>
+              <CardTitle className="text-2xl font-bold">{getTitle()}</CardTitle>
+              <CardDescription className="mt-2 text-sm">
+                {getDescription()}
+              </CardDescription>
+            </div>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 <FormField
                   control={form.control}
-                  name="otp"
+                  name="token"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Verification Code</FormLabel>
+                      <FormLabel className="text-sm font-medium">Verification Code</FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="Enter 6-digit code"
-                          className="app-input text-center text-lg tracking-widest"
-                          disabled={isLoading}
-                          maxLength={6}
                           {...field}
-                          onChange={(e) => {
-                            const value = e.target.value.replace(/\D/g, '');
-                            field.onChange(value);
-                          }}
+                          placeholder="Enter 6-digit code"
+                          className="text-center text-lg tracking-wider app-input"
+                          maxLength={6}
+                          autoComplete="one-time-code"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
                         />
                       </FormControl>
                       <FormMessage />
@@ -187,58 +203,37 @@ export default function VerifyOtpPage() {
                   )}
                 />
 
+                {error && (
+                  <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
+                    {error}
+                  </div>
+                )}
+
                 <Button 
                   type="submit" 
-                  className="w-full app-button text-base font-semibold"
-                  disabled={isLoading || !form.watch('otp') || form.watch('otp').length !== 6}
+                  className="w-full app-button text-base font-semibold" 
+                  disabled={isLoading}
                 >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Verifying...
-                    </>
-                  ) : (
-                    'Verify Email'
-                  )}
+                  {isLoading ? "Verifying..." : "Verify Code"}
                 </Button>
+
+                <div className="text-center space-y-2">
+                  <p className="text-sm text-muted-foreground">
+                    Didn't receive the code?
+                  </p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="text-sm app-button"
+                    onClick={handleResendOtp}
+                    disabled={!canResend || resendLoading}
+                  >
+                    <Mail className="w-4 h-4 mr-2" />
+                    {resendLoading ? "Sending..." : canResend ? "Resend Code" : `Resend in ${countdown}s`}
+                  </Button>
+                </div>
               </form>
             </Form>
-
-            <div className="space-y-4">
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground mb-2">
-                  Didn't receive the code?
-                </p>
-                <Button
-                  variant="outline"
-                  className="app-button"
-                  onClick={handleResendOtp}
-                  disabled={isResending || isLoading}
-                >
-                  {isResending ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Sending...
-                    </>
-                  ) : (
-                    <>
-                      <Mail className="mr-2 h-4 w-4" />
-                      Resend Code
-                    </>
-                  )}
-                </Button>
-              </div>
-              
-              <div className="text-center">
-                <Link 
-                  href="/login" 
-                  className="inline-flex items-center text-sm text-primary hover:underline"
-                >
-                  <ArrowLeft className="mr-1 h-4 w-4" />
-                  Back to Sign In
-                </Link>
-              </div>
-            </div>
           </CardContent>
         </Card>
       </div>

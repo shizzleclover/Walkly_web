@@ -21,10 +21,11 @@ export const useAuthState = () => {
 
       if (error) {
         console.error('Error fetching user profile:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code
+          message: error.message || 'Unknown error',
+          details: error.details || 'No details',
+          hint: error.hint || 'No hint',
+          code: error.code || 'No code',
+          fullError: error
         });
         
         // If user profile doesn't exist (new user), return null gracefully
@@ -34,14 +35,18 @@ export const useAuthState = () => {
         }
         
         // For other errors, still return null but log them
-        console.warn('Profile loading failed, but continuing:', error.message);
+        console.warn('Profile loading failed, but continuing:', error.message || 'Unknown error');
         return null;
       }
 
       console.log('User profile loaded successfully:', data);
       return data as UserProfile;
-    } catch (error) {
-      console.error('Unexpected error in loadUserProfile:', error);
+    } catch (error: any) {
+      console.error('Unexpected error in loadUserProfile:', {
+        message: error?.message || 'Unknown error',
+        stack: error?.stack || 'No stack trace',
+        fullError: error
+      });
       return null;
     }
   };
@@ -63,8 +68,11 @@ export const useAuthState = () => {
       if (!profileData) {
         console.log('Profile not available yet for user:', user.id);
       }
-    } catch (error) {
-      console.error('Error in refreshProfile:', error);
+    } catch (error: any) {
+      console.error('Error in refreshProfile:', {
+        message: error?.message || 'Unknown error',
+        fullError: error
+      });
     }
   }, [user, loading]);
 
@@ -81,8 +89,11 @@ export const useAuthState = () => {
         setSession(session)
         setUser(session?.user ?? null)
         setLoading(false)
-      } catch (error) {
-        console.error('Error in getInitialSession:', error)
+      } catch (error: any) {
+        console.error('Error in getInitialSession:', {
+          message: error?.message || 'Unknown error',
+          fullError: error
+        })
         setLoading(false)
       }
     }
@@ -110,50 +121,58 @@ export const useAuthState = () => {
     try {
       console.log('Loading and setting user data for:', userId);
       
-      // Load user profile
-      const { data: profile, error: profileError } = await userHelpers.getUserProfile(userId)
-      if (profileError) {
-        console.error('Error loading user profile:', {
-          message: profileError.message,
-          details: profileError.details,
-          hint: profileError.hint,
-          code: profileError.code
-        });
-        
-        // If profile doesn't exist, that's okay for new users
-        if (profileError.code === 'PGRST116') {
-          console.log('Profile not found - user might be new, skipping profile data load');
-          return;
-        }
-        
-        console.warn('Profile loading failed, continuing without profile data');
-        return;
-      }
+      // Load user profile using direct supabase call for consistency
+      const profileData = await loadUserProfile(userId);
       
-      if (profile) {
-        console.log('Profile loaded, setting profile data:', profile);
-        setProfile(profile as UserProfile);
+      if (profileData) {
+        console.log('Profile loaded, setting profile data:', profileData);
+        setProfile(profileData);
 
         // Check trial status
-        const { data: trialStatus, error: trialError } = await userHelpers.isUserOnTrial(userId)
-        if (!trialError && trialStatus !== null) {
-          setIsOnTrial(Boolean(trialStatus))
-          console.log('Trial status loaded:', trialStatus);
-        } else if (trialError) {
-          console.warn('Error checking trial status:', trialError.message);
+        try {
+          const { data: trialStatus, error: trialError } = await userHelpers.isUserOnTrial(userId)
+          if (!trialError && trialStatus !== null) {
+            setIsOnTrial(Boolean(trialStatus))
+            console.log('Trial status loaded:', trialStatus);
+          } else if (trialError) {
+            console.warn('Error checking trial status:', {
+              message: trialError?.message || 'Unknown error',
+              fullError: trialError
+            });
+          }
+        } catch (error: any) {
+          console.warn('Exception checking trial status:', {
+            message: error?.message || 'Unknown error',
+            fullError: error
+          });
         }
 
         // Check premium access
-        const { data: premiumAccess, error: premiumError } = await userHelpers.userHasPremiumAccess(userId)
-        if (!premiumError && premiumAccess !== null) {
-          setHasPremiumAccess(Boolean(premiumAccess))
-          console.log('Premium access loaded:', premiumAccess);
-        } else if (premiumError) {
-          console.warn('Error checking premium access:', premiumError.message);
+        try {
+          const { data: premiumAccess, error: premiumError } = await userHelpers.userHasPremiumAccess(userId)
+          if (!premiumError && premiumAccess !== null) {
+            setHasPremiumAccess(Boolean(premiumAccess))
+            console.log('Premium access loaded:', premiumAccess);
+          } else if (premiumError) {
+            console.warn('Error checking premium access:', {
+              message: premiumError?.message || 'Unknown error',
+              fullError: premiumError
+            });
+          }
+        } catch (error: any) {
+          console.warn('Exception checking premium access:', {
+            message: error?.message || 'Unknown error',
+            fullError: error
+          });
         }
+      } else {
+        console.log('No profile data available for user:', userId);
       }
-    } catch (error) {
-      console.error('Unexpected error loading user data:', error)
+    } catch (error: any) {
+      console.error('Unexpected error loading user data:', {
+        message: error?.message || 'Unknown error',
+        fullError: error
+      })
     }
   }
 
@@ -184,7 +203,24 @@ export const useAuthState = () => {
       console.log('OTP verification response:', { data, error });
       
       if (error) {
-        console.error('OTP verification error:', error);
+        console.error('OTP verification error:', {
+          message: error.message || 'Unknown error',
+          status: (error as any).status || 'No status',
+          code: (error as any).code || 'No code',
+          fullError: error
+        });
+        
+        // Handle specific error cases
+        if (error.message?.includes('Token has expired') || error.message?.includes('invalid')) {
+          return { 
+            data: null, 
+            error: { 
+              ...error, 
+              message: 'The verification code has expired. Please request a new one.' 
+            } 
+          };
+        }
+        
         return { data: null, error };
       }
       
@@ -206,7 +242,10 @@ export const useAuthState = () => {
       
       return { data: null, error: new Error('No user data returned') };
     } catch (error: any) {
-      console.error('Error in verifyOtp:', error);
+      console.error('Error in verifyOtp:', {
+        message: error?.message || 'Unknown error',
+        fullError: error
+      });
       return { data: null, error };
     }
   };
