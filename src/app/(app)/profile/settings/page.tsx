@@ -15,8 +15,10 @@ import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { supabase } from "@/lib/supabase";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Textarea } from "@/components/ui/textarea";
+import { uploadProfilePicture, deletePhoto, extractFilePathFromUrl } from "@/lib/photo-upload";
+import { PWAInstallStatus } from "@/components/pwa-install-prompt";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -31,6 +33,8 @@ export default function SettingsPage() {
     avatar_url: profile?.avatar_url || ''
   });
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
 
   const handleLogout = async () => {
     try {
@@ -105,6 +109,48 @@ export default function SettingsPage() {
     setIsEditingProfile(false);
   };
 
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !user?.id) return;
+
+    setIsUploadingAvatar(true);
+    try {
+      // Delete old avatar if it exists and is from our storage
+      if (profileData.avatar_url) {
+        const oldPath = extractFilePathFromUrl(profileData.avatar_url, 'avatars');
+        if (oldPath) {
+          await deletePhoto('avatars', oldPath);
+        }
+      }
+
+      // Upload new avatar
+      const uploadResult = await uploadProfilePicture(file, user.id);
+      
+      if (uploadResult.success && uploadResult.url) {
+        setProfileData(prev => ({ ...prev, avatar_url: uploadResult.url }));
+        toast({
+          title: "Avatar uploaded successfully",
+          description: "Your profile picture has been updated.",
+        });
+      } else {
+        throw new Error(uploadResult.error || 'Upload failed');
+      }
+    } catch (error) {
+      console.error('Avatar upload error:', error);
+      toast({
+        variant: "destructive",
+        title: "Failed to upload avatar",
+        description: error instanceof Error ? error.message : "Please try again.",
+      });
+    } finally {
+      setIsUploadingAvatar(false);
+      // Reset file input
+      if (avatarInputRef.current) {
+        avatarInputRef.current.value = '';
+      }
+    }
+  };
+
   return (
     <AppLayout>
       <div className="flex flex-col h-full">
@@ -173,15 +219,44 @@ export default function SettingsPage() {
                   <div className="space-y-6">
                     <div className="flex items-start gap-6">
                       <div className="flex-shrink-0">
-                        <Avatar className="h-20 w-20 ring-4 ring-primary/10 ring-offset-2 ring-offset-background">
-                          <AvatarImage src={profileData.avatar_url} alt="User avatar" />
-                          <AvatarFallback className="bg-primary/10 text-primary text-xl">
-                            {profileData.username?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'}
-                          </AvatarFallback>
-                        </Avatar>
-                        <Button variant="outline" size="sm" className="mt-2 w-full gap-2">
-                          <Upload className="w-3 h-3" />
-                          Change
+                        <div className="relative">
+                          <Avatar className="h-20 w-20 ring-4 ring-primary/10 ring-offset-2 ring-offset-background">
+                            <AvatarImage src={profileData.avatar_url} alt="User avatar" />
+                            <AvatarFallback className="bg-primary/10 text-primary text-xl">
+                              {profileData.username?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'}
+                            </AvatarFallback>
+                          </Avatar>
+                          {isUploadingAvatar && (
+                            <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
+                              <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            </div>
+                          )}
+                        </div>
+                        <input
+                          ref={avatarInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={handleAvatarUpload}
+                          className="hidden"
+                        />
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="mt-2 w-full gap-2"
+                          onClick={() => avatarInputRef.current?.click()}
+                          disabled={isUploadingAvatar}
+                        >
+                          {isUploadingAvatar ? (
+                            <>
+                              <div className="w-3 h-3 border border-muted-foreground border-t-transparent rounded-full animate-spin" />
+                              Uploading...
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="w-3 h-3" />
+                              Change Photo
+                            </>
+                          )}
                         </Button>
                       </div>
                       
@@ -216,15 +291,7 @@ export default function SettingsPage() {
                            </p>
                          </div>
                         
-                        <div className="space-y-2">
-                          <Label htmlFor="avatar_url">Avatar URL</Label>
-                          <Input
-                            id="avatar_url"
-                            value={profileData.avatar_url}
-                            onChange={(e) => setProfileData(prev => ({ ...prev, avatar_url: e.target.value }))}
-                            placeholder="https://example.com/avatar.jpg"
-                          />
-                        </div>
+
                       </div>
                     </div>
                     
@@ -314,6 +381,11 @@ export default function SettingsPage() {
                       : 'Recently joined'
                     }
                   </p>
+                </div>
+                
+                <div className="flex flex-col gap-2">
+                  <p className="text-sm font-medium text-muted-foreground">App Installation</p>
+                  <PWAInstallStatus />
                 </div>
                 
                 {!profile && (

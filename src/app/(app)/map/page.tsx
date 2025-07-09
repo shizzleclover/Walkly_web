@@ -26,7 +26,7 @@ export default function MapPage() {
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [authLoading, user, hideLoading]);
+  }, [authLoading, user]); // Removed hideLoading from deps to prevent infinite re-renders
   
   const {
     walkState,

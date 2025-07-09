@@ -3,7 +3,7 @@
 import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Compass, Footprints, Activity, TrendingUp, Calendar } from "lucide-react";
+import { Compass, Footprints, Activity, TrendingUp, Calendar, Smartphone } from "lucide-react";
 import Link from "next/link";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -142,6 +142,16 @@ const NewUserEngagement: React.FC = () => {
           </p>
         </CardContent>
       </Card>
+
+      <Card className="shadow-md border-dashed border-2 border-primary/20 bg-primary/5">
+        <CardContent className="p-6 text-center">
+          <Smartphone className="mx-auto h-10 w-10 text-primary mb-3" />
+          <h4 className="font-semibold mb-2 text-primary">💡 Pro Tip</h4>
+          <p className="text-sm text-muted-foreground">
+            Add Walkly to your home screen for the best experience! You'll get a native app-like interface with faster access and offline features.
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
 };
@@ -162,7 +172,7 @@ export default function HomePage() {
       }, 300);
       return () => clearTimeout(timer);
     }
-  }, [authLoading, walksLoading, user, hideLoading]);
+  }, [authLoading, walksLoading, user]); // Removed hideLoading from deps to prevent infinite re-renders
 
   // Fetch user walks
   React.useEffect(() => {
