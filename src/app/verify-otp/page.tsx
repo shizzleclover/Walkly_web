@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -7,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { useAuthState } from "@/hooks/use-auth";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
@@ -17,7 +19,7 @@ const formSchema = z.object({
   token: z.string().min(6, { message: "Verification code must be at least 6 characters." }),
 });
 
-export default function VerifyOtpPage() {
+function VerifyOtpContent() {
   const { verifyOtp, signInWithOtp } = useAuthState();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -199,10 +201,10 @@ export default function VerifyOtpPage() {
                       <FormLabel className="text-sm font-medium">Verification Code</FormLabel>
                       <FormControl>
                         <Input
+                          placeholder="Enter verification code"
                           {...field}
-                          placeholder="Enter 6-digit code"
-                          className="text-center text-lg tracking-wider app-input"
-                          maxLength={6}
+                          className="text-center text-lg tracking-widest font-mono"
+                          disabled={isLoading}
                           autoComplete="one-time-code"
                           inputMode="numeric"
                           pattern="[0-9]*"
@@ -214,39 +216,80 @@ export default function VerifyOtpPage() {
                 />
 
                 {error && (
-                  <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
+                  <div className="bg-destructive/15 border border-destructive/20 text-destructive text-sm p-3 rounded-lg">
                     {error}
                   </div>
                 )}
 
                 <Button 
                   type="submit" 
-                  className="w-full app-button text-base font-semibold" 
+                  className="w-full app-button" 
                   disabled={isLoading}
                 >
                   {isLoading ? "Verifying..." : "Verify Code"}
                 </Button>
 
-                <div className="text-center space-y-2">
+                <div className="text-center space-y-3">
                   <p className="text-sm text-muted-foreground">
                     Didn't receive the code?
                   </p>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="text-sm app-button"
-                    onClick={handleResendOtp}
-                    disabled={!canResend || resendLoading}
-                  >
-                    <Mail className="w-4 h-4 mr-2" />
-                    {resendLoading ? "Sending..." : canResend ? "Resend Code" : `Resend in ${countdown}s`}
-                  </Button>
+                  
+                  {canResend ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full app-button"
+                      onClick={handleResendOtp}
+                      disabled={resendLoading}
+                    >
+                      {resendLoading ? "Sending..." : "Resend Code"}
+                    </Button>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      Resend available in {countdown} seconds
+                    </p>
+                  )}
                 </div>
               </form>
             </Form>
+
+            <div className="mt-6 pt-6 border-t text-center">
+              <Link href="/login" className="text-sm text-muted-foreground hover:text-foreground transition-colors app-button">
+                Return to Sign In
+              </Link>
+            </div>
           </CardContent>
         </Card>
       </div>
     </div>
+  );
+}
+
+export default function VerifyOtpPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-background flex items-center justify-center p-4 safe-area-top safe-area-bottom">
+        <div className="w-full max-w-md space-y-6">
+          <Card className="shadow-lg">
+            <CardHeader className="space-y-4 text-center">
+              <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                <Shield className="w-6 h-6 text-primary" />
+              </div>
+              <div>
+                <CardTitle className="text-2xl font-bold">Loading...</CardTitle>
+                <CardDescription className="mt-2 text-sm">
+                  Preparing verification form...
+                </CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <LoadingSpinner centered text="Loading verification form..." />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    }>
+      <VerifyOtpContent />
+    </Suspense>
   );
 } 

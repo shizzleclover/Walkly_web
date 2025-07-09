@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { Suspense } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -9,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { WalkingAnimation } from "@/components/walking-animation";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { authHelpers } from "@/lib/supabase";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
@@ -25,7 +27,7 @@ const formSchema = z.object({
   path: ["confirmPassword"],
 });
 
-export default function ResetPasswordPage() {
+function ResetPasswordContent() {
   const [isLoading, setIsLoading] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
@@ -219,27 +221,58 @@ export default function ResetPasswordPage() {
                       )}
                     />
 
-                    <Button 
-                      type="submit" 
-                      className="w-full app-button text-base font-semibold"
-                      disabled={isLoading}
-                    >
-                      {isLoading ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Updating Password...
-                        </>
-                      ) : (
-                        'Update Password'
-                      )}
-                    </Button>
+                    <div className="space-y-3">
+                      <Button type="submit" className="w-full app-button" disabled={isLoading}>
+                        {isLoading ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Updating Password...
+                          </>
+                        ) : (
+                          'Update Password'
+                        )}
+                      </Button>
+                    </div>
                   </form>
                 </Form>
+
+                <div className="text-center">
+                  <Link 
+                    href="/login" 
+                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                  >
+                    Back to Sign In
+                  </Link>
+                </div>
               </CardContent>
             </>
           )}
         </Card>
       </div>
     </div>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-br from-primary/5 via-background to-accent/5">
+        <div className="w-full max-w-md space-y-6">
+          <div className="text-center space-y-2">
+            <WalkingAnimation className="mx-auto h-16 w-16 text-primary" />
+            <h1 className="text-3xl font-bold font-headline text-foreground">
+              Loading...
+            </h1>
+          </div>
+          <Card className="shadow-lg border-border/50">
+            <CardContent className="p-8">
+              <LoadingSpinner centered text="Preparing password reset..." />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    }>
+      <ResetPasswordContent />
+    </Suspense>
   );
 } 
