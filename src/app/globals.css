@@ -79,14 +79,18 @@ body {
     overscroll-behavior-y: none;
   }
 
-  /* Ensure map containers can have proper dimensions */
-  .mapboxgl-map {
+  /* Ensure Google Maps containers can have proper dimensions */
+  .gm-style {
     font-family: inherit !important;
   }
   
-  /* Fix for Mapbox GL JS with Tailwind */
-  .mapboxgl-canvas-container {
-    position: relative !important;
+  /* Fix for Google Maps with Tailwind CSS reset */
+  .gm-style div {
+    box-sizing: content-box;
+  }
+  
+  .gm-style img {
+    max-width: none;
   }
 
   /* Native app animations */

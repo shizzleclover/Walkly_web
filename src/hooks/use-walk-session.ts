@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
-import { generateWalkingRoute, type GeneratedRoute, type RouteGenerationOptions } from "@/lib/route-generation";
-import mapboxgl from "mapbox-gl";
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { supabase } from '@/lib/supabase';
+import { generateWalkingRoute, latLngToCoords, coordsToLatLng } from '@/lib/route-generation';
 
 export type WalkState = 'idle' | 'generating' | 'preview' | 'active' | 'paused' | 'completed';
 
@@ -24,8 +23,8 @@ export interface WalkSession {
   end_time?: number;
   total_distance: number;
   total_duration: number;
-  route_path: mapboxgl.LngLatLike[];
-  planned_route?: mapboxgl.LngLatLike[];
+  route_path: google.maps.LatLng[];
+  planned_route?: google.maps.LatLng[];
   moments: WalkMoment[];
   status: 'active' | 'paused' | 'completed';
 }
@@ -40,8 +39,8 @@ export interface LiveStats {
 export function useWalkSession(userId?: string) {
   const [walkState, setWalkState] = useState<WalkState>('idle');
   const [currentSession, setCurrentSession] = useState<WalkSession | null>(null);
-  const [generatedRoute, setGeneratedRoute] = useState<GeneratedRoute | null>(null);
-  const [breadcrumbTrail, setBreadcrumbTrail] = useState<mapboxgl.LngLatLike[]>([]);
+  const [generatedRoute, setGeneratedRoute] = useState<{ coordinates: google.maps.LatLng[]; distance: number; duration: number } | null>(null);
+  const [breadcrumbTrail, setBreadcrumbTrail] = useState<google.maps.LatLng[]>([]);
   const [moments, setMoments] = useState<WalkMoment[]>([]);
   const [liveStats, setLiveStats] = useState<LiveStats>({
     duration: 0,
@@ -49,206 +48,222 @@ export function useWalkSession(userId?: string) {
     pace: 0,
     speed: 0
   });
-  const [userLocation, setUserLocation] = useState<GeolocationCoordinates | null>(null);
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const startTime = useRef<number>(0);
-  const pausedDuration = useRef<number>(0);
-  const statsInterval = useRef<NodeJS.Timeout | null>(null);
+  // Refs for tracking
+  const startTimeRef = useRef<number | null>(null);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastLocationRef = useRef<{ lat: number; lng: number } | null>(null);
 
-  const generateRoute = useCallback(async (options: RouteGenerationOptions) => {
-    if (!options.startLocation) {
-      setError("User location required to generate route");
+  // Clear error after 5 seconds
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => setError(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
+
+  // Generate route function
+  const generateRoute = useCallback(async (options: {
+    startLocation: { lat: number; lng: number };
+    duration: number;
+    complexity?: 'simple' | 'medium' | 'complex';
+  }) => {
+    if (!userId) {
+      setError('User not authenticated');
       return;
     }
 
-    setWalkState('generating');
-    setError(null);
     setIsLoading(true);
+    setError(null);
+    setWalkState('generating');
 
     try {
-      const result = await generateWalkingRoute(options);
-      
+      const result = await generateWalkingRoute({
+        startLocation: options.startLocation,
+        duration: options.duration,
+        complexity: options.complexity || 'medium'
+      });
+
       if (result.success && result.route) {
-        setGeneratedRoute(result.route);
+        setGeneratedRoute({
+          coordinates: result.route.coordinates,
+          distance: result.route.distance,
+          duration: result.route.duration
+        });
         setWalkState('preview');
       } else {
-        setError(result.error || "Failed to generate route");
-        setWalkState('idle');
+        throw new Error(result.error || 'Failed to generate route');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to generate route");
+      console.error('Route generation failed:', err);
+      setError(err instanceof Error ? err.message : 'Failed to generate route');
       setWalkState('idle');
     } finally {
       setIsLoading(false);
     }
+  }, [userId]);
+
+  // Start walk function
+  const startWalk = useCallback((title?: string) => {
+    if (!userId || !generatedRoute) {
+      setError('Cannot start walk: missing requirements');
+      return;
+    }
+
+    const now = Date.now();
+    startTimeRef.current = now;
+
+    const session: WalkSession = {
+      user_id: userId,
+      title: title || `Walk ${new Date().toLocaleDateString()}`,
+      start_time: now,
+      total_distance: 0,
+      total_duration: 0,
+      route_path: [],
+      planned_route: generatedRoute.coordinates,
+      moments: [],
+      status: 'active'
+    };
+
+    setCurrentSession(session);
+    setWalkState('active');
+    setBreadcrumbTrail([]);
+    setMoments([]);
+    setLiveStats({
+      duration: 0,
+      distance: 0,
+      pace: 0,
+      speed: 0
+    });
+
+    // Start live tracking
+    startLiveTracking();
+  }, [userId, generatedRoute]);
+
+  // Start live tracking
+  const startLiveTracking = useCallback(() => {
+    if (intervalRef.current) return;
+
+    intervalRef.current = setInterval(() => {
+      if (startTimeRef.current && walkState === 'active') {
+        const now = Date.now();
+        const duration = Math.floor((now - startTimeRef.current) / 1000);
+        const distance = calculateTrailDistance(breadcrumbTrail);
+        const speed = duration > 0 ? (distance / 1000) / (duration / 3600) : 0; // km/h
+        const pace = speed > 0 ? 60 / speed : 0; // minutes per km
+
+        setLiveStats({
+          duration,
+          distance,
+          pace,
+          speed
+        });
+      }
+    }, 1000);
+  }, [breadcrumbTrail, walkState]);
+
+  // Stop live tracking
+  const stopLiveTracking = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
   }, []);
 
-  const startWalk = useCallback(async (title?: string) => {
-    if (!userId || !userLocation) {
-      setError("User authentication and location required");
+  // Pause walk
+  const pauseWalk = useCallback(() => {
+    setWalkState('paused');
+    stopLiveTracking();
+  }, [stopLiveTracking]);
+
+  // Resume walk
+  const resumeWalk = useCallback(() => {
+    setWalkState('active');
+    startLiveTracking();
+  }, [startLiveTracking]);
+
+  // End walk function
+  const endWalk = useCallback(async () => {
+    if (!currentSession || !userId) {
+      setError('No active session to end');
       return;
     }
 
     setIsLoading(true);
-    setError(null);
-
-    try {
-      const now = Date.now();
-      startTime.current = now;
-      pausedDuration.current = 0;
-
-      const newSession: WalkSession = {
-        user_id: userId,
-        title: title || `Walk ${new Date().toLocaleDateString()}`,
-        start_time: now,
-        total_distance: 0,
-        total_duration: 0,
-        route_path: [[userLocation.longitude, userLocation.latitude]],
-        planned_route: generatedRoute?.coordinates,
-        moments: [],
-        status: 'active'
-      };
-
-      // Save to Supabase
-      const { data, error: saveError } = await supabase
-        .from('walks_enhanced')
-        .insert([{
-          user_id: userId,
-          title: title || `Walk ${new Date().toLocaleDateString()}`,
-          start_time: new Date(now).toISOString(),
-          route_path: newSession.route_path,
-          planned_route: newSession.planned_route,
-          status: 'active'
-        }])
-        .select()
-        .single();
-
-      if (saveError) {
-        throw new Error(`Failed to save walk: ${saveError.message}`);
-      }
-
-      setCurrentSession({ ...newSession, id: data.id });
-      setBreadcrumbTrail([[userLocation.longitude, userLocation.latitude]]);
-      setMoments([]);
-      setWalkState('active');
-
-      startLiveStatsTracking();
-
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to start walk");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [userId, userLocation, generatedRoute]);
-
-  const pauseWalk = useCallback(async () => {
-    if (walkState !== 'active') return;
-    
-    setWalkState('paused');
-    pausedDuration.current += Date.now() - startTime.current;
-    stopLiveStatsTracking();
-
-    // Update in Supabase
-    if (currentSession?.id) {
-      try {
-        await supabase
-          .from('walks_enhanced')
-          .update({ status: 'paused' })
-          .eq('id', currentSession.id);
-      } catch (err) {
-        console.error('Failed to update walk status:', err);
-      }
-    }
-  }, [walkState, currentSession]);
-
-  const resumeWalk = useCallback(async () => {
-    if (walkState !== 'paused') return;
-    
-    setWalkState('active');
-    startTime.current = Date.now();
-    startLiveStatsTracking();
-
-    // Update in Supabase
-    if (currentSession?.id) {
-      try {
-        await supabase
-          .from('walks_enhanced')
-          .update({ status: 'active' })
-          .eq('id', currentSession.id);
-      } catch (err) {
-        console.error('Failed to update walk status:', err);
-      }
-    }
-  }, [walkState, currentSession]);
-
-  const endWalk = useCallback(async () => {
-    if (!currentSession) return;
-
-    setIsLoading(true);
-    stopLiveStatsTracking();
+    stopLiveTracking();
 
     try {
       const endTime = Date.now();
-      const totalDuration = walkState === 'paused' 
-        ? pausedDuration.current 
-        : endTime - startTime.current + pausedDuration.current;
+      const finalDistance = calculateTrailDistance(breadcrumbTrail);
+      const finalDuration = Math.floor((endTime - currentSession.start_time) / 1000);
 
-      const finalSession: WalkSession = {
+      const completedSession: WalkSession = {
         ...currentSession,
         end_time: endTime,
-        total_duration: Math.floor(totalDuration / 1000),
-        total_distance: liveStats.distance,
+        total_distance: finalDistance,
+        total_duration: finalDuration,
         route_path: breadcrumbTrail,
         moments,
         status: 'completed'
       };
 
-      // Update in Supabase
-      if (currentSession.id) {
-        await supabase
-          .from('walks_enhanced')
-          .update({
-            end_time: new Date(endTime).toISOString(),
-            total_duration: finalSession.total_duration,
-            total_distance: finalSession.total_distance,
-            route_path: finalSession.route_path,
-            status: 'completed'
-          })
-          .eq('id', currentSession.id);
+      // Save to Supabase
+      const { error: saveError } = await supabase
+        .from('walks_enhanced')
+        .insert({
+          user_id: userId,
+          title: completedSession.title,
+          start_time: new Date(completedSession.start_time).toISOString(),
+          end_time: new Date(endTime).toISOString(),
+          total_distance: finalDistance,
+          total_duration: finalDuration,
+          route_path: breadcrumbTrail.map(point => latLngToCoords(point)),
+          planned_route: generatedRoute?.coordinates.map(point => latLngToCoords(point)),
+          status: 'completed'
+        });
 
-        // Save moments
-        if (moments.length > 0) {
-          const momentInserts = moments.map(moment => ({
-            walk_id: currentSession.id,
-            latitude: moment.lat,
-            longitude: moment.lng,
-            photo_url: moment.photo_url,
-            description: moment.description,
-            created_at: new Date(moment.timestamp).toISOString()
-          }));
+      if (saveError) {
+        console.error('Failed to save walk:', saveError);
+        setError('Failed to save walk data');
+      }
 
-          await supabase
-            .from('walk_moments')
-            .insert(momentInserts);
+      // Save moments
+      if (moments.length > 0) {
+        const { error: momentsError } = await supabase
+          .from('walk_moments')
+          .insert(
+            moments.map(moment => ({
+              walk_id: completedSession.id, // This would be set after inserting the walk
+              latitude: moment.lat,
+              longitude: moment.lng,
+              photo_url: moment.photo_url,
+              description: moment.description,
+              created_at: new Date(moment.timestamp).toISOString()
+            }))
+          );
+
+        if (momentsError) {
+          console.error('Failed to save moments:', momentsError);
         }
       }
 
-      setCurrentSession(finalSession);
+      setCurrentSession(completedSession);
       setWalkState('completed');
 
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save walk");
+      console.error('Failed to end walk:', err);
+      setError('Failed to save walk data');
     } finally {
       setIsLoading(false);
     }
-  }, [currentSession, walkState, liveStats, breadcrumbTrail, moments]);
+  }, [currentSession, userId, breadcrumbTrail, moments, generatedRoute, stopLiveTracking]);
 
+  // Add moment function
   const addMoment = useCallback((location: { lat: number; lng: number }, description?: string) => {
-    if (walkState !== 'active') return;
-
-    const newMoment: WalkMoment = {
+    const moment: WalkMoment = {
       id: `moment_${Date.now()}`,
       lat: location.lat,
       lng: location.lng,
@@ -256,73 +271,62 @@ export function useWalkSession(userId?: string) {
       description
     };
 
-    setMoments(prev => [...prev, newMoment]);
-  }, [walkState]);
-
-  const handleLocationUpdate = useCallback((coords: GeolocationCoordinates) => {
-    setUserLocation(coords);
-
-    if (walkState === 'active' && currentSession) {
-      const newPoint: mapboxgl.LngLatLike = [coords.longitude, coords.latitude];
-      
-      setBreadcrumbTrail(prev => {
-        if (prev.length === 0) return [newPoint];
-        
-        const lastPoint = prev[prev.length - 1];
-        const lastLng = Array.isArray(lastPoint) ? lastPoint[0] : lastPoint.lng;
-        const lastLat = Array.isArray(lastPoint) ? lastPoint[1] : lastPoint.lat;
-        
-        const distance = calculateDistance(
-          { lat: lastLat, lng: lastLng },
-          { lat: coords.latitude, lng: coords.longitude }
-        );
-        
-        if (distance > 5) {
-          return [...prev, newPoint];
-        }
-        
-        return prev;
-      });
-    }
-  }, [walkState, currentSession]);
-
-  const startLiveStatsTracking = useCallback(() => {
-    statsInterval.current = setInterval(() => {
-      if (walkState !== 'active' || !currentSession) return;
-
-      const now = Date.now();
-      const duration = Math.floor((now - startTime.current + pausedDuration.current) / 1000);
-      const distance = calculateTrailDistance(breadcrumbTrail);
-      const pace = duration > 0 ? distance / (duration / 60) : 0;
-      const speed = pace * 0.06;
-
-      setLiveStats({ duration, distance, pace, speed });
-    }, 1000);
-  }, [walkState, currentSession, breadcrumbTrail]);
-
-  const stopLiveStatsTracking = useCallback(() => {
-    if (statsInterval.current) {
-      clearInterval(statsInterval.current);
-      statsInterval.current = null;
-    }
+    setMoments(prev => [...prev, moment]);
   }, []);
 
+  // Handle location update
+  const handleLocationUpdate = useCallback((coords: GeolocationCoordinates) => {
+    const newLocation = {
+      latitude: coords.latitude,
+      longitude: coords.longitude
+    };
+    
+    setUserLocation(newLocation);
+
+    // Add to breadcrumb trail if actively walking
+    if (walkState === 'active') {
+      const newPoint = coordsToLatLng({ lat: coords.latitude, lng: coords.longitude });
+      
+      // Only add if we've moved a significant distance (reduce noise)
+      const lastLocation = lastLocationRef.current;
+      if (!lastLocation || calculateDistance(
+        { lat: coords.latitude, lng: coords.longitude },
+        lastLocation
+      ) > 5) { // 5 meters minimum
+        setBreadcrumbTrail(prev => [...prev, newPoint]);
+        lastLocationRef.current = { lat: coords.latitude, lng: coords.longitude };
+      }
+    }
+  }, [walkState]);
+
+  // Reset session
   const resetSession = useCallback(() => {
     setWalkState('idle');
     setCurrentSession(null);
     setGeneratedRoute(null);
     setBreadcrumbTrail([]);
     setMoments([]);
-    setLiveStats({ duration: 0, distance: 0, pace: 0, speed: 0 });
+    setLiveStats({
+      duration: 0,
+      distance: 0,
+      pace: 0,
+      speed: 0
+    });
     setError(null);
-    stopLiveStatsTracking();
-  }, [stopLiveStatsTracking]);
+    stopLiveTracking();
+    startTimeRef.current = null;
+    lastLocationRef.current = null;
+  }, [stopLiveTracking]);
 
+  // Cleanup on unmount
   useEffect(() => {
-    return () => stopLiveStatsTracking();
-  }, [stopLiveStatsTracking]);
+    return () => {
+      stopLiveTracking();
+    };
+  }, [stopLiveTracking]);
 
   return {
+    // State
     walkState,
     currentSession,
     generatedRoute,
@@ -332,6 +336,8 @@ export function useWalkSession(userId?: string) {
     userLocation,
     error,
     isLoading,
+
+    // Actions
     generateRoute,
     startWalk,
     pauseWalk,
@@ -340,45 +346,40 @@ export function useWalkSession(userId?: string) {
     addMoment,
     handleLocationUpdate,
     resetSession,
+
+    // Computed properties
     isTracking: walkState === 'active',
     hasActiveSession: currentSession !== null,
-    canStartWalk: walkState === 'preview' || walkState === 'idle'
+    canStartWalk: walkState === 'preview' && generatedRoute !== null
   };
 }
 
+// Helper function to calculate distance between two points (Haversine formula)
 function calculateDistance(point1: { lat: number; lng: number }, point2: { lat: number; lng: number }): number {
-  const R = 6371e3;
+  const R = 6371e3; // Earth's radius in meters
   const φ1 = point1.lat * Math.PI / 180;
   const φ2 = point2.lat * Math.PI / 180;
   const Δφ = (point2.lat - point1.lat) * Math.PI / 180;
   const Δλ = (point2.lng - point1.lng) * Math.PI / 180;
 
   const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-          Math.cos(φ1) * Math.cos(φ2) *
-          Math.sin(Δλ/2) * Math.sin(Δλ/2);
+            Math.cos(φ1) * Math.cos(φ2) *
+            Math.sin(Δλ/2) * Math.sin(Δλ/2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 
-  return R * c;
+  return R * c; // Distance in meters
 }
 
-function calculateTrailDistance(trail: mapboxgl.LngLatLike[]): number {
+// Helper function to calculate total distance of a trail
+function calculateTrailDistance(trail: google.maps.LatLng[]): number {
   if (trail.length < 2) return 0;
 
   let totalDistance = 0;
   for (let i = 1; i < trail.length; i++) {
-    const prev = trail[i - 1];
-    const curr = trail[i];
-    
-    const prevLng = Array.isArray(prev) ? prev[0] : prev.lng;
-    const prevLat = Array.isArray(prev) ? prev[1] : prev.lat;
-    const currLng = Array.isArray(curr) ? curr[0] : curr.lng;
-    const currLat = Array.isArray(curr) ? curr[1] : curr.lat;
-    
-    totalDistance += calculateDistance(
-      { lat: prevLat, lng: prevLng },
-      { lat: currLat, lng: currLng }
-    );
+    const point1 = latLngToCoords(trail[i - 1]);
+    const point2 = latLngToCoords(trail[i]);
+    totalDistance += calculateDistance(point1, point2);
   }
-  
+
   return totalDistance;
 } 

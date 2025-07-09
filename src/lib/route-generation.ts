@@ -1,7 +1,5 @@
-import mapboxgl from "mapbox-gl";
-
-const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
-const MAPBOX_DIRECTIONS_API = "https://api.mapbox.com/directions/v5/mapbox/walking";
+// Route Generation Library - Google Maps Version
+// Migrated from Mapbox to Google Maps Directions API
 
 export interface RouteGenerationOptions {
   startLocation: {
@@ -11,14 +9,17 @@ export interface RouteGenerationOptions {
   duration?: number; // in minutes, default 30
   preferredDistance?: number; // in kilometers, overrides duration if provided
   complexity?: 'simple' | 'medium' | 'complex'; // number of waypoints
+  avoidHighways?: boolean;
+  avoidTolls?: boolean;
 }
 
 export interface GeneratedRoute {
-  coordinates: mapboxgl.LngLatLike[];
+  coordinates: google.maps.LatLng[];
   distance: number; // in meters
   duration: number; // in seconds
-  waypoints: mapboxgl.LngLatLike[];
+  waypoints: google.maps.LatLng[];
   instructions?: string[];
+  bounds?: google.maps.LatLngBounds;
 }
 
 export interface RouteGenerationResult {
@@ -27,240 +28,229 @@ export interface RouteGenerationResult {
   error?: string;
 }
 
-/**
- * Generates a circular walking route starting and ending at the user's location
- */
+// Initialize Google Maps services
+let directionsService: google.maps.DirectionsService | null = null;
+
+const initializeGoogleMapsServices = () => {
+  if (typeof google !== 'undefined' && google.maps) {
+    if (!directionsService) {
+      directionsService = new google.maps.DirectionsService();
+    }
+    return true;
+  }
+  return false;
+};
+
 export async function generateWalkingRoute(
   options: RouteGenerationOptions
 ): Promise<RouteGenerationResult> {
-  if (!MAPBOX_TOKEN) {
-    return {
-      success: false,
-      error: "Mapbox token not found. Please add NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN to your environment variables."
-    };
-  }
-
-  // Check network connectivity
-  if (!navigator.onLine) {
-    return {
-      success: false,
-      error: "No internet connection. Please check your network and try again."
-    };
-  }
-
   try {
-    const { startLocation, duration = 30, preferredDistance, complexity = 'medium' } = options;
-
-    // Calculate radius based on duration or distance
-    const walkingSpeedKmh = 5; // Average walking speed
-    const radiusKm = preferredDistance 
-      ? preferredDistance / 4 // Quarter of total distance for radius to account for circular route
-      : (duration / 60) * walkingSpeedKmh / 4;
-
-    // Generate waypoints around the start location
-    const waypoints = generateCircularWaypoints(startLocation, radiusKm, complexity);
-    
-    // Create the full route: start -> waypoints -> start
-    const fullWaypoints = [
-      [startLocation.lng, startLocation.lat],
-      ...waypoints,
-      [startLocation.lng, startLocation.lat]
-    ];
-
-    // Call Mapbox Directions API with timeout and enhanced error handling
-    const directionsUrl = buildDirectionsUrl(fullWaypoints);
-    console.log('Requesting route from:', directionsUrl);
-    
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
-    
-    const response = await fetch(directionsUrl, {
-      signal: controller.signal,
-      headers: {
-        'Accept': 'application/json',
-        'User-Agent': 'Walkly/1.0'
-      }
-    });
-    
-    clearTimeout(timeoutId);
-    
-    if (!response.ok) {
-      let errorMessage = `Directions API error: ${response.status} ${response.statusText}`;
-      
-      if (response.status === 401) {
-        errorMessage = "Invalid Mapbox access token. Please check your configuration.";
-      } else if (response.status === 403) {
-        errorMessage = "Mapbox API access denied. Please check your token permissions.";
-      } else if (response.status === 422) {
-        errorMessage = "Invalid route parameters. Please try a different location.";
-      } else if (response.status >= 500) {
-        errorMessage = "Mapbox service temporarily unavailable. Please try again later.";
-      }
-      
-      throw new Error(errorMessage);
+    // Check if Google Maps is loaded
+    if (!initializeGoogleMapsServices()) {
+      throw new Error('Google Maps API not loaded');
     }
 
-    const data = await response.json();
+    const {
+      startLocation,
+      duration = 30,
+      preferredDistance,
+      complexity = 'medium',
+      avoidHighways = true,
+      avoidTolls = true
+    } = options;
 
-    if (!data.routes || data.routes.length === 0) {
-      return {
-        success: false,
-        error: "No route found for this location. Try adjusting the distance or choosing a different area."
-      };
-    }
+    // Calculate target distance if not provided
+    const targetDistance = preferredDistance || estimateWalkDistance(duration);
+    
+    // Generate waypoints for a circular route
+    const waypoints = generateCircularWaypoints(
+      startLocation,
+      targetDistance / 2, // radius
+      complexity
+    );
 
-    const route = data.routes[0];
-    const coordinates = decodePolyline(route.geometry);
-
-    if (coordinates.length === 0) {
-      return {
-        success: false,
-        error: "Route coordinates could not be processed. Please try again."
-      };
-    }
-
-    return {
-      success: true,
-      route: {
-        coordinates,
-        distance: route.distance,
-        duration: route.duration,
-        waypoints: fullWaypoints,
-        instructions: route.legs?.flatMap((leg: any) => 
-          leg.steps?.map((step: any) => step.maneuver?.instruction) || []
-        ).filter(Boolean)
-      }
+    // Create the route request
+    const request: google.maps.DirectionsRequest = {
+      origin: new google.maps.LatLng(startLocation.lat, startLocation.lng),
+      destination: new google.maps.LatLng(startLocation.lat, startLocation.lng), // Return to start
+      waypoints: waypoints.map(point => ({
+        location: new google.maps.LatLng(point.lat, point.lng),
+        stopover: false
+      })),
+      travelMode: google.maps.TravelMode.WALKING,
+      avoidHighways,
+      avoidTolls,
+      optimizeWaypoints: true,
     };
+
+    return new Promise((resolve) => {
+      directionsService!.route(request, (result, status) => {
+        if (status === google.maps.DirectionsStatus.OK && result) {
+          const route = result.routes[0];
+          const leg = route.legs[0];
+          
+          // Extract coordinates from the route
+          const coordinates: google.maps.LatLng[] = [];
+          route.legs.forEach(leg => {
+            leg.steps.forEach(step => {
+              step.path.forEach(point => {
+                coordinates.push(point);
+              });
+            });
+          });
+
+          // Extract waypoints
+          const extractedWaypoints = waypoints.map(wp => 
+            new google.maps.LatLng(wp.lat, wp.lng)
+          );
+
+          // Extract instructions
+          const instructions: string[] = [];
+          route.legs.forEach(leg => {
+            leg.steps.forEach(step => {
+              instructions.push(step.instructions);
+            });
+          });
+
+          const generatedRoute: GeneratedRoute = {
+            coordinates,
+            distance: leg.distance?.value || 0,
+            duration: leg.duration?.value || 0,
+            waypoints: extractedWaypoints,
+            instructions,
+            bounds: route.bounds
+          };
+
+          resolve({
+            success: true,
+            route: generatedRoute
+          });
+        } else {
+          let errorMessage = 'Failed to generate route';
+          switch (status) {
+            case google.maps.DirectionsStatus.NOT_FOUND:
+              errorMessage = 'Location not found';
+              break;
+            case google.maps.DirectionsStatus.ZERO_RESULTS:
+              errorMessage = 'No route found between the specified points';
+              break;
+            case google.maps.DirectionsStatus.MAX_WAYPOINTS_EXCEEDED:
+              errorMessage = 'Too many waypoints specified';
+              break;
+            case google.maps.DirectionsStatus.INVALID_REQUEST:
+              errorMessage = 'Invalid route request';
+              break;
+            case google.maps.DirectionsStatus.OVER_QUERY_LIMIT:
+              errorMessage = 'API quota exceeded';
+              break;
+            case google.maps.DirectionsStatus.REQUEST_DENIED:
+              errorMessage = 'Directions API access denied';
+              break;
+            case google.maps.DirectionsStatus.UNKNOWN_ERROR:
+              errorMessage = 'Unknown error occurred';
+              break;
+          }
+
+          resolve({
+            success: false,
+            error: errorMessage
+          });
+        }
+      });
+    });
 
   } catch (error) {
     console.error('Route generation error:', error);
-    
-    let userFriendlyError = "Failed to generate route";
-    
-    if (error instanceof Error) {
-      const errorMessage = error.message.toLowerCase();
-      
-      if (error.name === 'AbortError' || errorMessage.includes('timeout')) {
-        userFriendlyError = "Request timed out. Please check your connection and try again.";
-      } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
-        userFriendlyError = "Network error. Please check your internet connection.";
-      } else if (errorMessage.includes('token') || errorMessage.includes('unauthorized')) {
-        userFriendlyError = "Map service authentication error. Please try again later.";
-      } else if (errorMessage.includes('connection reset') || errorMessage.includes('connection refused')) {
-        userFriendlyError = "Cannot connect to map services. Please check your network or try again later.";
-      } else {
-        userFriendlyError = error.message;
-      }
-    }
-    
     return {
       success: false,
-      error: userFriendlyError
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
     };
   }
 }
 
-/**
- * Generates waypoints in a roughly circular pattern around the start location
- */
 function generateCircularWaypoints(
   center: { lat: number; lng: number },
   radiusKm: number,
   complexity: 'simple' | 'medium' | 'complex'
-): mapboxgl.LngLatLike[] {
-  const numWaypoints = {
+): { lat: number; lng: number }[] {
+  const waypointCounts = {
     simple: 2,
-    medium: 3,
-    complex: 4
-  }[complexity];
+    medium: 4,
+    complex: 6
+  };
 
-  const waypoints: mapboxgl.LngLatLike[] = [];
-  
-  // Convert radius to degrees (approximate)
-  const radiusLat = radiusKm / 111.32; // 1 degree latitude ≈ 111.32 km
-  const radiusLng = radiusKm / (111.32 * Math.cos(center.lat * Math.PI / 180));
+  const numWaypoints = waypointCounts[complexity];
+  const waypoints: { lat: number; lng: number }[] = [];
+
+  // Earth's radius in kilometers
+  const earthRadiusKm = 6371;
+
+  // Convert radius from km to degrees (approximate)
+  const radiusDegrees = radiusKm / earthRadiusKm * (180 / Math.PI);
 
   for (let i = 0; i < numWaypoints; i++) {
-    // Calculate angle for this waypoint (evenly distributed around circle)
+    // Calculate angle for this waypoint (evenly spaced around the circle)
     const angle = (2 * Math.PI * i) / numWaypoints;
     
-    // Add some randomness to make the route more interesting
-    const randomRadius = radiusKm * (0.7 + Math.random() * 0.6); // 70% to 130% of base radius
-    const randomAngle = angle + (Math.random() - 0.5) * 0.5; // ±0.25 radians variation
+    // Add some randomness to make routes more interesting
+    const randomFactor = 0.3 + Math.random() * 0.4; // Between 0.3 and 0.7
+    const actualRadius = radiusDegrees * randomFactor;
     
-    // Convert back to lat/lng with randomness
-    const randomRadiusLat = randomRadius / 111.32;
-    const randomRadiusLng = randomRadius / (111.32 * Math.cos(center.lat * Math.PI / 180));
-    
-    const lat = center.lat + randomRadiusLat * Math.sin(randomAngle);
-    const lng = center.lng + randomRadiusLng * Math.cos(randomAngle);
-    
-    waypoints.push([lng, lat]);
+    // Calculate waypoint coordinates
+    const lat = center.lat + actualRadius * Math.cos(angle);
+    const lng = center.lng + actualRadius * Math.sin(angle) / Math.cos(center.lat * Math.PI / 180);
+
+    waypoints.push({ lat, lng });
   }
 
   return waypoints;
 }
 
-/**
- * Builds the Mapbox Directions API URL
- */
-function buildDirectionsUrl(waypoints: mapboxgl.LngLatLike[]): string {
-  const coordinates = waypoints
-    .map(point => `${Array.isArray(point) ? point[0] : point.lng},${Array.isArray(point) ? point[1] : point.lat}`)
-    .join(';');
-
-  const params = new URLSearchParams({
-    geometries: 'geojson',
-    overview: 'full',
-    steps: 'true',
-    access_token: MAPBOX_TOKEN!
-  });
-
-  return `${MAPBOX_DIRECTIONS_API}/${coordinates}?${params.toString()}`;
-}
-
-/**
- * Decodes the geometry from Mapbox Directions API response
- */
-function decodePolyline(geometry: any): mapboxgl.LngLatLike[] {
-  if (geometry.type === 'LineString') {
-    return geometry.coordinates;
-  }
-  
-  // If it's an encoded polyline string, we'd need to decode it
-  // For now, assume it's already GeoJSON
-  return [];
-}
-
-/**
- * Calculates the estimated duration for a given distance
- */
 export function estimateWalkDuration(distanceKm: number, speedKmh: number = 5): number {
-  return Math.round((distanceKm / speedKmh) * 60); // Return minutes
+  // Returns duration in minutes
+  return Math.round((distanceKm / speedKmh) * 60);
 }
 
-/**
- * Calculates the estimated distance for a given duration
- */
 export function estimateWalkDistance(durationMinutes: number, speedKmh: number = 5): number {
-  return (durationMinutes / 60) * speedKmh; // Return kilometers
+  // Returns distance in kilometers
+  return (durationMinutes / 60) * speedKmh;
 }
 
-/**
- * Generates alternative routes by varying waypoints
- */
 export async function generateAlternativeRoutes(
   options: RouteGenerationOptions,
   count: number = 3
 ): Promise<RouteGenerationResult[]> {
-  const promises = Array.from({ length: count }, (_, i) => {
-    // Vary complexity and add randomization seed
-    const complexity: Array<'simple' | 'medium' | 'complex'> = ['simple', 'medium', 'complex'];
-    return generateWalkingRoute({
+  const routes: RouteGenerationResult[] = [];
+  
+  for (let i = 0; i < count; i++) {
+    // Vary the complexity and add some randomness for alternative routes
+    const complexities: ('simple' | 'medium' | 'complex')[] = ['simple', 'medium', 'complex'];
+    const altOptions = {
       ...options,
-      complexity: complexity[i % complexity.length]
-    });
-  });
+      complexity: complexities[i % complexities.length]
+    };
+    
+    const route = await generateWalkingRoute(altOptions);
+    routes.push(route);
+    
+    // Add a small delay between requests to avoid rate limiting
+    if (i < count - 1) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+  }
+  
+  return routes;
+}
 
-  return Promise.all(promises);
+// Helper function to convert Google Maps LatLng to a simple coordinate object
+export function latLngToCoords(latLng: google.maps.LatLng): { lat: number; lng: number } {
+  return {
+    lat: latLng.lat(),
+    lng: latLng.lng()
+  };
+}
+
+// Helper function to convert coordinates to Google Maps LatLng
+export function coordsToLatLng(coords: { lat: number; lng: number }): google.maps.LatLng {
+  return new google.maps.LatLng(coords.lat, coords.lng);
 } 

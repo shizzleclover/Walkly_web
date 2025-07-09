@@ -11,6 +11,7 @@ import { AlertCircle, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { useNavigation } from "@/hooks/use-navigation";
+import { coordsToLatLng, latLngToCoords } from "@/lib/route-generation";
 
 export default function MapPage() {
   const { navigateToLogin, hideLoading } = useNavigation();

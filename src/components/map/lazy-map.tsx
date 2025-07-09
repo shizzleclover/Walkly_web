@@ -3,246 +3,256 @@
 import * as React from "react";
 import dynamic from "next/dynamic";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { WalklyMapProps } from "./walkly-map";
-import { WalkSessionOverlayProps } from "./walk-session-overlay";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, RefreshCw, Wifi, WifiOff } from "lucide-react";
+import { AlertCircle, RotateCcw, Wifi, WifiOff } from "lucide-react";
+import { GoogleMapWalklyProps } from "./google-map";
+import { WalkSessionOverlayProps } from "./walk-session-overlay";
 
-// Lazy load the heavy map components
-const WalklyMap = dynamic(() => import("./walkly-map").then(mod => ({ default: mod.WalklyMap })), {
+// Dynamically import the Google Maps component with no SSR
+const GoogleMapWalkly = dynamic(() => import("./google-map").then(mod => ({ default: mod.GoogleMapWalkly })), {
   loading: () => (
-    <div className="h-full w-full flex items-center justify-center bg-muted/10">
-      <div className="text-center space-y-4">
-        <LoadingSpinner size="large" />
-        <div className="space-y-2">
-          <h3 className="text-lg font-semibold">Loading Map</h3>
-          <p className="text-sm text-muted-foreground">
-            Initializing GPS and map services...
-          </p>
-        </div>
-      </div>
+    <div className="w-full h-full flex items-center justify-center bg-muted">
+      <LoadingSpinner 
+        size="large" 
+        text="Loading Map" 
+        centered 
+      />
     </div>
   ),
-  ssr: false, // Map can't be server-side rendered
+  ssr: false
 });
 
+// Dynamically import the walk session overlay
 const WalkSessionOverlay = dynamic(() => import("./walk-session-overlay").then(mod => ({ default: mod.WalkSessionOverlay })), {
-  loading: () => (
-    <div className="absolute bottom-6 left-4 right-4 z-10">
-      <div className="bg-card/95 backdrop-blur-sm border rounded-2xl p-4 shadow-lg">
-        <div className="flex items-center gap-3">
-          <LoadingSpinner size="small" />
-          <span className="text-sm text-muted-foreground">Loading controls...</span>
-        </div>
-      </div>
-    </div>
-  ),
-  ssr: false,
+  loading: () => null,
+  ssr: false
 });
 
 interface LazyMapProps {
-  mapProps: WalklyMapProps;
+  mapProps: GoogleMapWalklyProps;
   overlayProps: WalkSessionOverlayProps;
 }
 
-// Simplified connectivity check with quick timeout
+interface MapError {
+  type: 'connectivity' | 'api' | 'location' | 'unknown';
+  message: string;
+  retryable: boolean;
+}
+
 async function quickConnectivityCheck(): Promise<boolean> {
-  const token = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
-  if (!token) return false;
-
   try {
+    // Check if we can reach Google's servers
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
-
-    const response = await fetch(`https://api.mapbox.com/styles/v1/mapbox/streets-v12`, {
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    
+    const response = await fetch('https://maps.googleapis.com/maps/api/js', {
       method: 'HEAD',
       signal: controller.signal,
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
+      mode: 'no-cors' // Avoid CORS issues for connectivity test
     });
-
+    
     clearTimeout(timeoutId);
-    return response.ok;
-  } catch {
-    return false; // Fail silently and continue
+    return true;
+  } catch (error) {
+    console.warn('Google Maps API connectivity check failed:', error);
+    return false;
   }
 }
 
 export function LazyMap({ mapProps, overlayProps }: LazyMapProps) {
-  const [loadingState, setLoadingState] = React.useState<{
-    isLoading: boolean;
-    hasConnectivityIssue: boolean;
-    shouldShowMap: boolean;
-  }>({
-    isLoading: true,
-    hasConnectivityIssue: false,
-    shouldShowMap: false
-  });
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [error, setError] = React.useState<MapError | null>(null);
+  const [isOnline, setIsOnline] = React.useState(navigator.onLine);
+  const [retryCount, setRetryCount] = React.useState(0);
 
   React.useEffect(() => {
-    let mounted = true;
-
     const initializeMap = async () => {
-      // Always ensure we show the map within 5 seconds maximum
-      const maxLoadingTimeout = setTimeout(() => {
-        if (mounted) {
-          setLoadingState({
-            isLoading: false,
-            hasConnectivityIssue: false,
-            shouldShowMap: true
-          });
-        }
-      }, 5000);
-
       try {
-        // Quick connectivity check (max 3 seconds)
-        const hasConnectivity = await quickConnectivityCheck();
-        
-        if (mounted) {
-          // Wait a brief moment for better UX, then show map
-          setTimeout(() => {
-            if (mounted) {
-              clearTimeout(maxLoadingTimeout);
-              setLoadingState({
-                isLoading: false,
-                hasConnectivityIssue: !hasConnectivity,
-                shouldShowMap: true
-              });
-            }
-          }, 1000);
-        }
-      } catch (error) {
-        console.warn('Connectivity check failed:', error);
-        
-        if (mounted) {
-          // Show map anyway after brief delay
-          setTimeout(() => {
-            if (mounted) {
-              clearTimeout(maxLoadingTimeout);
-              setLoadingState({
-                isLoading: false,
-                hasConnectivityIssue: true,
-                shouldShowMap: true
-              });
-            }
-          }, 2000);
-        }
-      }
+        setIsLoading(true);
+        setError(null);
 
-      return () => {
-        clearTimeout(maxLoadingTimeout);
-      };
+        // Check if Google Maps API key is configured
+        if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
+          throw new Error('Google Maps API key not configured');
+        }
+
+        // Check network connectivity
+        if (!navigator.onLine) {
+          throw new Error('No internet connection');
+        }
+
+        // Quick connectivity check to Google's servers
+        const isConnected = await quickConnectivityCheck();
+        if (!isConnected) {
+          console.warn('Google Maps API connectivity check failed, but continuing...');
+          // Don't throw error here - let the map try to load anyway
+        }
+
+        // Small delay to ensure dynamic imports are ready
+        await new Promise(resolve => setTimeout(resolve, 300));
+
+        setIsLoading(false);
+
+      } catch (err) {
+        console.error('Map initialization error:', err);
+        
+        let mapError: MapError;
+        const errorMessage = err instanceof Error ? err.message.toLowerCase() : 'unknown error';
+
+        if (errorMessage.includes('network') || errorMessage.includes('connection')) {
+          mapError = {
+            type: 'connectivity',
+            message: 'Network connection issue. Please check your internet connection.',
+            retryable: true
+          };
+        } else if (errorMessage.includes('api key') || errorMessage.includes('not configured')) {
+          mapError = {
+            type: 'api',
+            message: 'Map service configuration error. Please check API settings.',
+            retryable: false
+          };
+        } else if (errorMessage.includes('location') || errorMessage.includes('geolocation')) {
+          mapError = {
+            type: 'location',
+            message: 'Location services unavailable. Please enable location access.',
+            retryable: true
+          };
+        } else {
+          mapError = {
+            type: 'unknown',
+            message: 'Map failed to load. Please try again.',
+            retryable: true
+          };
+        }
+
+        setError(mapError);
+        setIsLoading(false);
+      }
     };
 
     initializeMap();
+  }, [retryCount]);
+
+  // Handle online/offline events
+  React.useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      if (error?.type === 'connectivity') {
+        handleRetry();
+      }
+    };
+
+    const handleOffline = () => {
+      setIsOnline(false);
+      setError({
+        type: 'connectivity',
+        message: 'You are offline. Map features may be limited.',
+        retryable: true
+      });
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
 
     return () => {
-      mounted = false;
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
     };
-  }, []);
+  }, [error]);
 
   const handleRetry = () => {
-    setLoadingState({
-      isLoading: true,
-      hasConnectivityIssue: false,
-      shouldShowMap: false
-    });
-    
-    // Retry after a brief delay
-    setTimeout(() => {
-      window.location.reload();
-    }, 500);
+    setRetryCount(prev => prev + 1);
   };
 
   // Show loading state
-  if (loadingState.isLoading) {
+  if (isLoading) {
     return (
-      <div className="h-full w-full flex items-center justify-center bg-muted/5">
-        <div className="text-center space-y-4">
-          <div className="relative">
-            <LoadingSpinner size="xl" />
-            <Wifi className="absolute inset-0 m-auto h-6 w-6 text-primary animate-pulse" />
-          </div>
+      <div className="w-full h-full flex items-center justify-center bg-muted relative">
+        <div className="text-center space-y-4 max-w-sm mx-auto p-6">
+          <LoadingSpinner size="large" />
           <div className="space-y-2">
-            <h3 className="text-lg font-semibold">Preparing Map</h3>
-            <p className="text-sm text-muted-foreground max-w-md">
-              Connecting to map services...
+            <h3 className="text-lg font-semibold">Loading Map</h3>
+            <p className="text-sm text-muted-foreground">
+              Initializing GPS and map services...
             </p>
           </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Show map once ready
-  if (loadingState.shouldShowMap) {
-    return (
-      <React.Suspense 
-        fallback={
-          <div className="h-full w-full flex items-center justify-center bg-muted/10">
-            <div className="text-center space-y-4">
-              <LoadingSpinner size="xl" />
-              <div className="space-y-2">
-                <h3 className="text-lg font-semibold">Initializing Map</h3>
-                <p className="text-sm text-muted-foreground">
-                  Loading map interface...
-                </p>
-              </div>
-            </div>
-          </div>
-        }
-      >
-        <div className="relative w-full h-full overflow-hidden">
-          <WalklyMap {...mapProps} className="w-full h-full" />
-          <WalkSessionOverlay {...overlayProps} />
-          
-          {/* Show connectivity warning if there were issues */}
-          {loadingState.hasConnectivityIssue && (
-            <div className="absolute top-4 left-4 right-4 z-50">
-              <Card className="bg-yellow-50 border-yellow-200 dark:bg-yellow-950 dark:border-yellow-800">
-                <CardContent className="p-3">
-                  <div className="flex items-center gap-2 text-sm">
-                    <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
-                    <span className="text-yellow-800 dark:text-yellow-200">
-                      Network connectivity issues detected. Some features may be limited.
-                    </span>
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      onClick={handleRetry}
-                      className="ml-auto h-6 px-2 text-xs"
-                    >
-                      <RefreshCw className="h-3 w-3 mr-1" />
-                      Retry
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+          {!isOnline && (
+            <div className="flex items-center justify-center gap-2 text-destructive">
+              <WifiOff className="h-4 w-4" />
+              <span className="text-sm">Offline</span>
             </div>
           )}
         </div>
-      </React.Suspense>
+      </div>
     );
   }
 
-  // Fallback (shouldn't reach here, but just in case)
-  return (
-    <div className="h-full w-full flex items-center justify-center bg-muted/10">
-      <div className="text-center space-y-4">
-        <LoadingSpinner size="xl" />
-        <div className="space-y-2">
-          <h3 className="text-lg font-semibold">Loading Map</h3>
-          <p className="text-sm text-muted-foreground">
-            Initializing components...
-          </p>
-        </div>
-        <Button onClick={handleRetry} variant="outline" size="sm">
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Retry
-        </Button>
+  // Show error state
+  if (error) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-muted p-6">
+        <Card className="max-w-md w-full">
+          <CardContent className="p-6 text-center space-y-4">
+            <div className="flex items-center justify-center w-16 h-16 bg-destructive/10 rounded-full mx-auto">
+              {error.type === 'connectivity' ? (
+                <WifiOff className="w-8 h-8 text-destructive" />
+              ) : (
+                <AlertCircle className="w-8 h-8 text-destructive" />
+              )}
+            </div>
+            
+            <div className="space-y-2">
+              <h3 className="text-lg font-semibold text-foreground">
+                Map Unavailable
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {error.message}
+              </p>
+            </div>
+
+            {!isOnline && (
+              <div className="flex items-center justify-center gap-2 text-destructive text-sm">
+                <WifiOff className="h-4 w-4" />
+                <span>Currently offline</span>
+              </div>
+            )}
+
+            {error.retryable && (
+              <div className="space-y-2">
+                <Button 
+                  onClick={handleRetry} 
+                  variant="outline" 
+                  className="w-full gap-2"
+                  disabled={!isOnline && error.type === 'connectivity'}
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Try Again
+                </Button>
+                {retryCount > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Retry attempt: {retryCount}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {error.type === 'api' && (
+              <div className="text-xs text-muted-foreground space-y-1">
+                <p>If this error persists, please contact support.</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
+    );
+  }
+
+  // Render the map with overlay
+  return (
+    <div className="relative w-full h-full">
+      <GoogleMapWalkly {...mapProps} />
+      <WalkSessionOverlay {...overlayProps} />
     </div>
   );
 } 
