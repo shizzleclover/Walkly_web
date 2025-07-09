@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { Home, Map, History as HistoryIcon, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigation } from "@/hooks/use-navigation";
+import { PWAInstallPrompt } from "@/components/pwa-install-prompt";
 
 const navItems = [
   { href: "/home", label: "Home", icon: Home, navKey: "navigateToHome" },
@@ -56,6 +57,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           })}
         </nav>
       </footer>
+      
+      {/* PWA Install Prompt */}
+      <PWAInstallPrompt />
     </div>
   );
 }

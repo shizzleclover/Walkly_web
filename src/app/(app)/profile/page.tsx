@@ -223,7 +223,7 @@ export default function ProfilePage() {
       }, 300);
       return () => clearTimeout(timer);
     }
-  }, [authLoading, loading, user, hideLoading]);
+  }, [authLoading, loading, user]); // Removed hideLoading from deps to prevent infinite re-renders
 
   React.useEffect(() => {
     async function fetchUserData() {

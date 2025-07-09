@@ -210,8 +210,8 @@ export function useWalkSession(userId?: string) {
         status: 'completed'
       };
 
-      // Save to Supabase
-      const { error: saveError } = await supabase
+      // Save to Supabase and get the walk ID
+      const { data: savedWalk, error: saveError } = await supabase
         .from('walks_enhanced')
         .insert({
           user_id: userId,
@@ -223,20 +223,23 @@ export function useWalkSession(userId?: string) {
           route_path: breadcrumbTrail.map(point => latLngToCoords(point)),
           planned_route: generatedRoute?.coordinates.map(point => latLngToCoords(point)),
           status: 'completed'
-        });
+        })
+        .select('id')
+        .single();
 
       if (saveError) {
         console.error('Failed to save walk:', saveError);
         setError('Failed to save walk data');
+        return;
       }
 
-      // Save moments
-      if (moments.length > 0) {
+      // Save moments with the correct walk_id
+      if (moments.length > 0 && savedWalk?.id) {
         const { error: momentsError } = await supabase
           .from('walk_moments')
           .insert(
             moments.map(moment => ({
-              walk_id: completedSession.id, // This would be set after inserting the walk
+              walk_id: savedWalk.id,
               latitude: moment.lat,
               longitude: moment.lng,
               photo_url: moment.photo_url,
@@ -262,13 +265,14 @@ export function useWalkSession(userId?: string) {
   }, [currentSession, userId, breadcrumbTrail, moments, generatedRoute, stopLiveTracking]);
 
   // Add moment function
-  const addMoment = useCallback((location: { lat: number; lng: number }, description?: string) => {
+  const addMoment = useCallback((location: { lat: number; lng: number }, description?: string, photoUrl?: string) => {
     const moment: WalkMoment = {
       id: `moment_${Date.now()}`,
       lat: location.lat,
       lng: location.lng,
       timestamp: Date.now(),
-      description
+      description,
+      photo_url: photoUrl
     };
 
     setMoments(prev => [...prev, moment]);
