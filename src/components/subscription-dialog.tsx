@@ -32,9 +32,10 @@ const formSchema = z.object({
 interface SubscriptionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSuccess?: () => void;
 }
 
-export function SubscriptionDialog({ open, onOpenChange }: SubscriptionDialogProps) {
+export function SubscriptionDialog({ open, onOpenChange, onSuccess }: SubscriptionDialogProps) {
   const { toast } = useToast();
   const router = useRouter();
 
@@ -55,8 +56,13 @@ export function SubscriptionDialog({ open, onOpenChange }: SubscriptionDialogPro
       title: "Success! You're now a Premium user.",
       description: "Welcome to the full Walkly experience!",
     });
-    // Redirect to home or profile to see the new status
-    router.push("/home");
+    
+    // Call onSuccess callback if provided, otherwise redirect to home
+    if (onSuccess) {
+      onSuccess();
+    } else {
+      router.push("/home");
+    }
   }
 
   return (

@@ -215,6 +215,16 @@ export const userHelpers = {
       user_uuid: userId
     })
     return { data, error }
+  },
+
+  markOnboardingCompleted: async (userId: string) => {
+    const { data, error } = await supabase
+      .from('users')
+      .update({ onboarding_completed: true, updated_at: new Date().toISOString() })
+      .eq('id', userId)
+      .select()
+      .single()
+    return { data, error }
   }
 }
 
@@ -387,6 +397,9 @@ export type User = {
   id: string
   email: string
   username?: string
+  bio?: string
+  avatar_url?: string
+  onboarding_completed: boolean
   trial_start: string
   trial_end: string
   is_premium: boolean

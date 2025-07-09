@@ -11,6 +11,7 @@ import * as React from 'react';
 import { useAuthState } from "@/hooks/use-auth";
 import { walkHelpers, Walk } from "@/lib/supabase";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useLoading } from "@/components/loading-provider";
 
 interface ActivityHeatmapProps {
   walks: Walk[];
@@ -147,10 +148,21 @@ const NewUserEngagement: React.FC = () => {
 
 export default function HomePage() {
   const { user, profile, loading: authLoading } = useAuthState();
+  const { hideLoading } = useLoading();
   const [walks, setWalks] = React.useState<Walk[]>([]);
   const [walksLoading, setWalksLoading] = React.useState(true);
   const [walksThisWeek, setWalksThisWeek] = React.useState(0);
   const [lastWalk, setLastWalk] = React.useState<Walk | null>(null);
+
+  // Hide global loading when page data is ready
+  React.useEffect(() => {
+    if (!authLoading && !walksLoading && user) {
+      const timer = setTimeout(() => {
+        hideLoading();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [authLoading, walksLoading, user, hideLoading]);
 
   // Fetch user walks
   React.useEffect(() => {

@@ -3,6 +3,7 @@ import './globals.css';
 import { ThemeProvider } from 'next-themes';
 import { Toaster } from "@/components/ui/toaster";
 import ErrorBoundary from "@/components/error-boundary";
+import { LoadingProvider } from "@/components/loading-provider";
 import "@/lib/extension-protection";
 
 export const metadata: Metadata = {
@@ -62,10 +63,12 @@ export default function RootLayout({
             disableTransitionOnChange
             suppressHydrationWarning
           >
-            <div className="min-h-screen bg-background">
-              {children}
-            </div>
-            <Toaster />
+            <LoadingProvider>
+              <div className="min-h-screen bg-background">
+                {children}
+              </div>
+              <Toaster />
+            </LoadingProvider>
           </ThemeProvider>
         </ErrorBoundary>
       </body>

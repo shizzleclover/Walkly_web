@@ -1,3 +1,5 @@
+"use client";
+
 import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -5,6 +7,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Clock, Compass, Camera, Sparkles } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import * as React from 'react';
+import { useAuthState } from "@/hooks/use-auth";
+import { useLoading } from "@/components/loading-provider";
 
 const pastWalks = [
   { 
@@ -58,6 +63,19 @@ const freeTierLimit = 2;
 const displayedWalks = pastWalks.slice(0, freeTierLimit);
 
 export default function HistoryPage() {
+  const { user, loading: authLoading } = useAuthState();
+  const { hideLoading } = useLoading();
+
+  // Hide global loading when page is ready
+  React.useEffect(() => {
+    if (!authLoading && user) {
+      const timer = setTimeout(() => {
+        hideLoading();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [authLoading, user, hideLoading]);
+
   return (
     <AppLayout>
       <div className="flex flex-col h-full">

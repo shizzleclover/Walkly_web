@@ -1,3 +1,5 @@
+"use client"
+
 import { useState, useEffect, useCallback } from 'react'
 import { User, Session } from '@supabase/supabase-js'
 import { supabase, authHelpers, userHelpers, User as UserProfile } from '@/lib/supabase'
@@ -44,10 +46,18 @@ export const useAuthState = () => {
           details: error.details || 'No details',
           hint: error.hint || 'No hint',
           code: error.code || 'No code',
+          status: error.status || 'No status',
           userId: userId,
           errorType: typeof error,
           errorKeys: Object.keys(error),
-          fullError: JSON.stringify(error, null, 2)
+          // More detailed error serialization
+          errorString: error.toString(),
+          supabaseError: {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code
+          }
         });
         
         // If user profile doesn't exist (new user), return null gracefully

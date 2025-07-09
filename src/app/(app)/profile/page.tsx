@@ -15,6 +15,7 @@ import { Progress } from "@/components/ui/progress";
 import { useAuthState } from "@/hooks/use-auth";
 import { supabase } from "@/lib/supabase";
 import { WalkingAnimation } from "@/components/walking-animation";
+import { useLoading } from "@/components/loading-provider";
 
 interface WalkStats {
   totalWalks: number;
@@ -207,15 +208,29 @@ function EmptyStateCard({ title, description, actionText, actionHref, icon: Icon
 }
 
 export default function ProfilePage() {
-  const { user, profile, hasPremiumAccess, isOnTrial, daysLeftInTrial } = useAuthState();
+  const { user, profile, hasPremiumAccess, isOnTrial, daysLeftInTrial, loading: authLoading } = useAuthState();
+  const { hideLoading } = useLoading();
   const [walkStats, setWalkStats] = React.useState<WalkStats | null>(null);
   const [monthlyData, setMonthlyData] = React.useState<MonthlyWalkData[]>([]);
   const [achievements, setAchievements] = React.useState<Achievement[]>([]);
   const [loading, setLoading] = React.useState(true);
 
+  // Hide global loading when page data is ready
+  React.useEffect(() => {
+    if (!authLoading && !loading && user) {
+      const timer = setTimeout(() => {
+        hideLoading();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [authLoading, loading, user, hideLoading]);
+
   React.useEffect(() => {
     async function fetchUserData() {
-      if (!user?.id) return;
+      if (!user?.id) {
+        setLoading(false);
+        return;
+      }
       
       setLoading(true);
       try {
@@ -283,46 +298,46 @@ export default function ProfilePage() {
             });
           }
           setMonthlyData(monthlyWalkData);
-        }
 
-        // Generate achievements based on stats
-        const generatedAchievements: Achievement[] = [
-          {
-            id: '1',
-            title: 'First Steps',
-            description: 'Complete your first walk',
-            icon: '🚶',
-            unlocked: (walks?.length || 0) > 0
-          },
-          {
-            id: '2',
-            title: 'Early Bird',
-            description: 'Walk 5 times',
-            icon: '🌅',
-            unlocked: (walks?.length || 0) >= 5,
-            progress: Math.min(walks?.length || 0, 5),
-            maxProgress: 5
-          },
-          {
-            id: '3',
-            title: 'Distance Master',
-            description: 'Walk a total of 10km',
-            icon: '🏃',
-            unlocked: totalDistance >= 10,
-            progress: Math.min(totalDistance, 10),
-            maxProgress: 10
-          },
-          {
-            id: '4',
-            title: 'Consistency King',
-            description: 'Walk 3 times this week',
-            icon: '👑',
-            unlocked: thisWeekWalks >= 3,
-            progress: Math.min(thisWeekWalks, 3),
-            maxProgress: 3
-          }
-        ];
-        setAchievements(generatedAchievements);
+          // Generate achievements based on stats (after calculating stats)
+          const generatedAchievements: Achievement[] = [
+            {
+              id: '1',
+              title: 'First Steps',
+              description: 'Complete your first walk',
+              icon: '🚶',
+              unlocked: (walks?.length || 0) > 0
+            },
+            {
+              id: '2',
+              title: 'Early Bird',
+              description: 'Walk 5 times',
+              icon: '🌅',
+              unlocked: (walks?.length || 0) >= 5,
+              progress: Math.min(walks?.length || 0, 5),
+              maxProgress: 5
+            },
+            {
+              id: '3',
+              title: 'Distance Master',
+              description: 'Walk a total of 10km',
+              icon: '🏃',
+              unlocked: totalDistance >= 10,
+              progress: Math.min(totalDistance, 10),
+              maxProgress: 10
+            },
+            {
+              id: '4',
+              title: 'Consistency King',
+              description: 'Walk 3 times this week',
+              icon: '👑',
+              unlocked: thisWeekWalks >= 3,
+              progress: Math.min(thisWeekWalks, 3),
+              maxProgress: 3
+            }
+          ];
+          setAchievements(generatedAchievements);
+        }
 
       } catch (error) {
         console.error('Error fetching user data:', error);
@@ -392,12 +407,12 @@ export default function ProfilePage() {
                     </Badge>
                   </div>
                   <p className="text-sm text-muted-foreground mt-2">
-                    Enjoying full access during your trial period.
+                      Enjoying full access during your trial period.
                   </p>
                 </CardContent>
               </Card>
             )}
-
+            
             {/* Profile Overview */}
             <Card className="shadow-md">
               <CardContent className="p-6">
@@ -456,10 +471,10 @@ export default function ProfilePage() {
                 </div>
 
                 {/* Activity Chart */}
-                <Card className="shadow-md">
-                  <CardHeader className="pb-4">
-                    <CardTitle className="flex items-center gap-2 text-xl">
-                      <BarChartIcon className="w-5 h-5 text-primary" />
+            <Card className="shadow-md">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-xl">
+                  <BarChartIcon className="w-5 h-5 text-primary" />
                       <span>Activity Trends</span>
                     </CardTitle>
                     <CardDescription>Your walking activity over the last 6 months</CardDescription>
@@ -475,10 +490,10 @@ export default function ProfilePage() {
                     <CardTitle className="flex items-center gap-2 text-xl">
                       <Award className="w-5 h-5 text-primary" />
                       <span>Achievements</span>
-                    </CardTitle>
+                </CardTitle>
                     <CardDescription>Track your walking milestones</CardDescription>
-                  </CardHeader>
-                  <CardContent className="pt-0">
+              </CardHeader>
+              <CardContent className="pt-0">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {achievements.map((achievement) => (
                         <AchievementCard key={achievement.id} achievement={achievement} />
@@ -535,8 +550,8 @@ export default function ProfilePage() {
                         <p className="text-xs text-muted-foreground mt-1">0/3 walks completed</p>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
+              </CardContent>
+            </Card>
               </div>
             )}
           </div>

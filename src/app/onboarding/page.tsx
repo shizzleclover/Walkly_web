@@ -3,7 +3,7 @@
 import * as React from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { MapPin, BarChart, Star, Check } from "lucide-react";
+import { MapPin, BarChart, Star, Check, Loader2 } from "lucide-react";
 
 import {
   Carousel,
@@ -17,13 +17,17 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { SubscriptionDialog } from "@/components/subscription-dialog";
+import { useAuthState } from "@/hooks/use-auth";
+import { userHelpers } from "@/lib/supabase";
 
 export default function OnboardingPage() {
   const [api, setApi] = React.useState<CarouselApi>();
   const [current, setCurrent] = React.useState(0);
+  const [isCompleting, setIsCompleting] = React.useState(false);
   const router = useRouter();
   const { toast } = useToast();
   const [isDialogOpen, setDialogOpen] = React.useState(false);
+  const { user, profile, loading, refreshUserData } = useAuthState();
 
 
   React.useEffect(() => {
@@ -60,12 +64,143 @@ export default function OnboardingPage() {
 
   React.useEffect(() => {
     handleLocationRequest();
-  }, [])
+  }, []);
+
+  // Redirect if user has already completed onboarding
+  React.useEffect(() => {
+    if (!loading && user && profile?.onboarding_completed) {
+      console.log('User has already completed onboarding, redirecting to home');
+      router.push('/home');
+    }
+  }, [user, profile, loading, router]);
+
+  const completeOnboarding = async () => {
+    if (!user?.id) {
+      toast({
+        title: "Error",
+        description: "Please sign in to continue.",
+        variant: "destructive",
+      });
+      router.push('/login');
+      return;
+    }
+
+    setIsCompleting(true);
+    try {
+      console.log('Completing onboarding for user:', user.id);
+      
+      const { data, error } = await userHelpers.markOnboardingCompleted(user.id);
+      
+      if (error) {
+        console.error('Error marking onboarding as completed:', error);
+        
+        // If there's a database error, still allow user to proceed
+        // They can complete onboarding later or we can fix it on the backend
+        toast({
+          title: "Welcome to Walkly!",
+          description: "Setup complete! Let's start walking.",
+        });
+        
+        // Navigate anyway to avoid blocking the user
+        setTimeout(() => {
+          router.push('/home');
+        }, 500);
+        return;
+      }
+
+      console.log('Onboarding marked as completed successfully:', data);
+
+      // Refresh user data to get the updated profile
+      try {
+        await refreshUserData();
+        console.log('User data refreshed after onboarding completion');
+      } catch (refreshError) {
+        console.warn('Failed to refresh user data, but continuing:', refreshError);
+      }
+
+      toast({
+        title: "Welcome to Walkly!",
+        description: "Your account is all set up. Let's start walking!",
+      });
+      
+      // Small delay to ensure state is updated before navigation
+      setTimeout(() => {
+        router.push('/home');
+      }, 500);
+      
+    } catch (error) {
+      console.error('Error completing onboarding:', error);
+      
+      // Fallback: still allow user to proceed to avoid blocking them
+      toast({
+        title: "Welcome to Walkly!",
+        description: "Setup complete! Let's start your walking journey.",
+      });
+      
+      setTimeout(() => {
+        router.push('/home');
+      }, 500);
+    }
+  };
+
+  // Add a direct skip function for emergency fallback
+  const skipOnboardingFallback = () => {
+    console.log('Using fallback onboarding skip');
+    toast({
+      title: "Welcome to Walkly!",
+      description: "Let's start walking!",
+    });
+    router.push('/home');
+  };
+
+  // Add a debug/fallback option to the UI for users who are still stuck, and also check if there are any issues with the navigation flow:
+  React.useEffect(() => {
+    // Test database connection on component mount (development only)
+    if (process.env.NODE_ENV === 'development' && user?.id) {
+      console.log('Testing database connection for user:', user.id);
+      userHelpers.getUserProfile(user.id)
+        .then(({ data, error }) => {
+          if (error) {
+            console.error('Database connection test failed:', error);
+          } else {
+            console.log('Database connection test successful:', data);
+          }
+        })
+        .catch(err => {
+          console.error('Database connection exception:', err);
+        });
+    }
+  }, [user?.id]);
+
+  // Add a test function users can call from browser console
+  React.useEffect(() => {
+    if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+      (window as any).testOnboardingCompletion = async () => {
+        if (!user?.id) {
+          console.log('No user ID available');
+          return;
+        }
+        console.log('Testing onboarding completion for user:', user.id);
+        try {
+          const result = await userHelpers.markOnboardingCompleted(user.id);
+          console.log('Test result:', result);
+          await refreshUserData();
+          console.log('User data refreshed');
+        } catch (error) {
+          console.error('Test failed:', error);
+        }
+      };
+    }
+  }, [user?.id, refreshUserData]);
 
 
   return (
     <>
-      <SubscriptionDialog open={isDialogOpen} onOpenChange={setDialogOpen} />
+      <SubscriptionDialog 
+        open={isDialogOpen} 
+        onOpenChange={setDialogOpen} 
+        onSuccess={completeOnboarding} 
+      />
       <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-background">
         <Carousel setApi={setApi} className="w-full max-w-md">
           <CarouselContent>
@@ -134,9 +269,34 @@ export default function OnboardingPage() {
                       <Star className="mr-2 h-4 w-4 animate-subtle-pulse" />
                       Start 7-Day Free Trial
                     </Button>
-                    <Button variant="link" className="text-muted-foreground" size="lg" onClick={() => router.push('/login')}>
-                      Maybe Later
+                    <Button 
+                      variant="link" 
+                      className="text-muted-foreground" 
+                      size="lg" 
+                      onClick={completeOnboarding}
+                      disabled={isCompleting}
+                    >
+                      {isCompleting ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Setting up...
+                        </>
+                      ) : (
+                        'Continue with Free Plan'
+                      )}
                     </Button>
+                    
+                    {/* Debug/Fallback button for development or if users get stuck */}
+                    {(process.env.NODE_ENV === 'development' || isCompleting) && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={skipOnboardingFallback}
+                        className="text-xs text-muted-foreground/60 w-full mt-4"
+                      >
+                        Skip Setup (Fallback)
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
